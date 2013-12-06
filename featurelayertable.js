@@ -522,7 +522,7 @@ require([
         var oid = parseInt(curRec.OBJECTID, 10);
 
         var dirty = featureEditor.grid.dirty;
-        console.log("featureEditor.grid.dirty: ", dirty);
+        console.debug("featureEditor.grid.dirty: ", dirty);
         var hasData = false;
 
         //try{
@@ -535,12 +535,12 @@ require([
                             curRec[item] = dirty[property][item];
                         }
                         else{
-                            console.log("updateRecord - property may be missing from currentRecord: ", item);
+                            console.debug("updateRecord - property may be missing from currentRecord: ", item);
                             if(featureEditor.utils.strStartsWith(item, "_")) {
-                                console.log("skip protected '_*'");
+                                console.debug("skip protected '_*'");
                             } else {
                                 hasData = true;
-                                console.log("add new attrib");
+                                console.debug("add new attrib");
                                 curRec[item] = dirty[property][item];
                             }
                         }
@@ -558,20 +558,17 @@ require([
             }
 
             var mrec = null;
-            console.log("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
-            if(featureEditor.masterRecordArr.length == 1) {
-                mrec = featureEditor.masterRecordArr[0];
+            console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
+            for(var ind in featureEditor.masterRecordArr) {
+                var mr = featureEditor.masterRecordArr[ind];
+                if(mr.attributes['OBJECTID'] == oid) {
+                    mrec = mr;
+                    break;
+                }
             }
-            else if(featureEditor.masterRecordArr.length > 1) {
-                mrec = featureEditor.masterRecordArr[oid];
-            }
-            else{
-                alert("Unable to update feature. Row is empty?");
-                return;
-            }
-            if(!mrec) { // TODO:
-                // length == 3 and oid == 3 !!!
+            if(mrec == null) {
                 alert("Unable to update feature. master record undefined");
+                featureEditor.utils.revertLocalRecord();
                 return;
             }
 
@@ -582,13 +579,13 @@ require([
                 curRec,
                 mrec.infoTemplate
             );
-            console.log("esri.Graphic: ", graphic);
+            console.debug("esri.Graphic: ", graphic);
 
             featureEditor.loadingIcon.show();
 
             featureEditor.featureLayer.applyEdits(null, [graphic], null,
                 function(addResult, updateResult, deleteResult) {
-                    console.log("updateRecord: " + updateResult[0].objectId + ", Success: " + updateResult[0].success);
+                    console.log("updateRecord.applyEdits.response: " + updateResult[0].objectId + ", Success: " + updateResult[0].success);
                     featureEditor.grid.refresh();
                     featureEditor.loadingIcon.hide();
                 },
@@ -596,7 +593,7 @@ require([
                     var message = "";
                     if(error.code)message = error.code;
                     if(error.description)message += error.description;
-                    console.log("updateRecord: " + error.message + ", " + message, error);
+                    console.log("updateRecord.applyEdits.error: " + error.message + ", " + message, error);
                     featureEditor.grid.refresh();
                     featureEditor.loadingIcon.hide();
                     alert("Unable to update. " + error.message + ", " + message);
@@ -1021,38 +1018,39 @@ require([
     }; // featureEditor.utils.createAddGrid
 
 
-    featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr) {
+    /**
+     *
+     * @param arr Array of field names, like ["OBJECTID", "RECID", "LABEL", "DESCR", "NOTE"]
+     */
+        featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr) {
         console.log("featureEditor.utils.updateGrid. featureSet, pageNumber, arr: ", featureSet, pageNumber, arr);
 
         var data = [];
         featureEditor.utils._setListeners();
 
-        dojo.forEach(featureSet.features, function (entry, i) {
+        dojo.forEach(featureSet.features, function (entry, ind) {
             var entryObject = {};
-
-            for (var item in arr){
-                var node0 = arr[item].toString();
-                if(entry.attributes[node0] === null){
-                    entryObject[node0] = entry.attributes[node0];
+            for (var item in arr) {
+                var attrName = arr[item].toString();
+                var attrVal = entry.attributes[attrName];
+                if(attrVal === null) {
+                    entryObject[attrName] = attrVal;
                 }
                 else{
-                    entryObject[node0] = entry.attributes[node0].toString();
+                    entryObject[attrName] = attrVal.toString();
                 }
             }
 
-            featureEditor.masterRecordArr[i] = {
-                geometry:entry.geometry,
-                infoTemplate:entry.infoTemplate,
-                symbol:entry.symbol
+            featureEditor.masterRecordArr[ind] = {
+                geometry:       entry.geometry,
+                infoTemplate:   entry.infoTemplate,
+                symbol:         entry.symbol,
+                attributes:     entry.attributes
             };
 
             data.push(entryObject);
         });
 
-//            if(featureEditor.grid.store != null) {
-//                //featureEditor.grid.store.setData({});
-//                //featureEditor.grid.refresh();
-//            }
         featureEditor.grid.store.setData(data);
         featureEditor.grid.refresh();
 
