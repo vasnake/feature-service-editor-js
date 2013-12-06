@@ -343,33 +343,38 @@ require([
 
             //Add the Save button
             columnArr[i] =  {save:"Save", renderCell:
-                function(object,data,cell) {
-                    var btn = Button({
+                function(object, data, cell) {
+                    //var btn =
+                    Button({
                         showLabel : false,
                         iconClass : "saveIcon16",
                         disabled : true,
                         style: "visibility:visible",
-                        onClick: dojo.hitch(this,function(event){
-                            if(this.grid.id == "grid"){
-                                featureEditor.updateRecord();
-                            }
-                            else{
-                                //alert('hi');
-                                featureEditor.addNewRecord();
-                            }
-                            var b = event.currentTarget.children[0].id;
-                            var c = dijit.byId(b);
-                            c.set('disabled',true);
-                        })
+                        onClick: dojo.hitch(this,
+                            function(event) {
+                                console.log("saveButton.onClick. event: ", event);
+                                if(this.grid.id == "grid"){
+                                    featureEditor.updateRecord(featureEditor.currentRecord);
+                                }
+                                else{
+                                    //alert('hi');
+                                    featureEditor.addNewRecord();
+                                }
+                                // Uncaught TypeError: Cannot read property 'id' of undefined
+//                                var b = event.currentTarget.children[0].id;
+//                                var c = dijit.byId(b);
+//                                c.set('disabled',true);
+                            })
                     }, cell.appendChild(document.createElement("div")));
-                    console.log("save button: ", btn);
+                    //console.log("render cell. save button created: ", btn);
                 }
             };
 
             //Add the Undo button
-            columnArr[i+1] =  {undo:"Undo", renderCell:
-                function(object,data,cell) {
-                    var undoBtn = Button({
+            columnArr[i+1] =  {undo: "Undo", renderCell:
+                function(object, data, cell) {
+                    //var undoBtn =
+                    Button({
                         showLabel : false,
                         iconClass : "undoIcon16",
                         label : "Undo",
@@ -387,15 +392,16 @@ require([
                             c.set('disabled',true);
                         })
                     }, cell.appendChild(document.createElement("div")));
-                    console.log("undo button: ", undoBtn);
+                    //console.log("render cell 'undo button': ", undoBtn);
                 }
             };
 
 
             //Add the Delete button
-            columnArr[i+2] =  {delColumn:"Delete",renderCell:
-                function(object,data,cell) {
-                    var deleteBtn = Button({
+            columnArr[i+2] =  {delColumn: "Delete", renderCell:
+                function(object, data, cell) {
+                    //var deleteBtn =
+                    Button({
                         showLabel : false,
                         iconClass : "deleteIcon16",
                         label : "Delete",
@@ -419,7 +425,7 @@ require([
                             c.set('disabled',true);
                         })
                     }, cell.appendChild(document.createElement("div")));
-                    console.log("delete button: ", deleteBtn);
+                    //console.log("render cell 'delete button': ", deleteBtn);
                 }
             };
 
@@ -511,88 +517,96 @@ require([
      * Updates a single existing record in the feature service.
      * NOTE: Feature must contain a valid OBJECTID field!
      */
-    featureEditor.updateRecord = function() {
-        console.log("featureEditor.updateRecord");
-        var oid = parseInt(featureEditor.currentRecord.OBJECTID, 10);
+    featureEditor.updateRecord = function(curRec) {
+        console.log("featureEditor.updateRecord. save currentRecord: ", curRec);
+        var oid = parseInt(curRec.OBJECTID, 10);
 
-        // var nameArr = [];
         var dirty = featureEditor.grid.dirty;
-        var id = Object.keys(dirty)[0];
-        console.log(dirty[id]);
+        console.log("featureEditor.grid.dirty: ", dirty);
+        var hasData = false;
 
-        //if id is undefined it means dirty changes have been saved
-        if(typeof(id) != "undefined") {
-            for (var property in dirty){
-                 if(property == featureEditor.currentRecord.OBJECTID){
-                     //get object property names
-                     for (var item in dirty[property]){
-                         //nameArr.push(item);
-                         if(featureEditor.currentRecord.hasOwnProperty(item)){
-                            featureEditor.currentRecord[item] = dirty[property][item];
-                         }
-                         else{
-                             console.log("updateRecord - properties may be missing from currentRecord.");
-                         }
-                     }
-                     break;
-                 }
-            }
-
-            //featureEditor.currentRecord[nameArr[0]] = dirty[id][nameArr[0]];
-            //console.log(nameArr + ", " + dirty[id][nameArr[0]]);
-
-            try{
-                var mrec = null;
-                if(featureEditor.masterRecordArr.length == 1) {
-                    mrec = featureEditor.masterRecordArr[0];
-                }
-                else if(featureEditor.masterRecordArr.length > 1) {
-                    mrec = featureEditor.masterRecordArr[oid];
-                }
-                else{
-                    console.log("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
-                    alert("Unable to update feature. Row is empty?");
-                    return false;
-                }
-
-                featureEditor.currentRecord.OBJECTID = oid;
-                var graphic = new esri.Graphic(
-                    mrec.geometry,
-                    mrec.symbol,
-                    featureEditor.currentRecord,
-                    mrec.infoTemplate
-                );
-
-                featureEditor.loadingIcon.show();
-                //var data =  JSON.stringify([graphic]);
-                //featureEditor.applyEdits(data);
-                featureEditor.featureLayer.applyEdits(null,[graphic],null,
-                    function(addResult,updateResult,deleteResult){
-                        console.log("updateRecord: " + updateResult[0].objectId + ", Success: " + updateResult[0].success);
-                        featureEditor.grid.refresh();
-                        featureEditor.loadingIcon.hide();
-                    },
-                    function(error){
-                        var message = "";
-                        if(error.code)message = error.code;
-                        if(error.description)message += error.description;
-                        console.log("updateRecord: " + error.message + ", " + message, error);
-                        featureEditor.grid.refresh();
-                        featureEditor.loadingIcon.hide();
-                        alert("Unable to update. " + error.message + ", " + message);
+        //try{
+            for (var property in dirty) {
+                if(property == oid) {
+                    //get object property names
+                    for (var item in dirty[property]) {
+                        if(curRec.hasOwnProperty(item)) {
+                            hasData = true;
+                            curRec[item] = dirty[property][item];
+                        }
+                        else{
+                            console.log("updateRecord - property may be missing from currentRecord: ", item);
+                            if(featureEditor.utils.strStartsWith(item, "_")) {
+                                console.log("skip protected '_*'");
+                            } else {
+                                hasData = true;
+                                console.log("add new attrib");
+                                curRec[item] = dirty[property][item];
+                            }
+                        }
                     }
-                ); // applyEdits
+                    // record data copied into curRec
+                    break;
+                }
+            } // end for each key in dirty
+
+            if(!hasData) {
+                //alert("Unable to update since nothing changed");
+                console.log("updateRecord: unable to update since nothing changed");
+                featureEditor.utils.revertLocalRecord();
+                return;
             }
-            catch(err) {
-                console.log("updateRecord fail: ", err);
-                alert("Unable to complete update. " + err.message);
+
+            var mrec = null;
+            console.log("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
+            if(featureEditor.masterRecordArr.length == 1) {
+                mrec = featureEditor.masterRecordArr[0];
             }
-        }
-        else{
-            alert("Unable to update since nothing changed");
-            featureEditor.utils.revertLocalRecord();
-            console.log("updateRecord: unable to update since nothing changed");
-        }
+            else if(featureEditor.masterRecordArr.length > 1) {
+                mrec = featureEditor.masterRecordArr[oid];
+            }
+            else{
+                alert("Unable to update feature. Row is empty?");
+                return;
+            }
+            if(!mrec) { // TODO:
+                // length == 3 and oid == 3 !!!
+                alert("Unable to update feature. master record undefined");
+                return;
+            }
+
+            curRec.OBJECTID = oid; // integer instead of string
+            var graphic = new esri.Graphic(
+                mrec.geometry,
+                mrec.symbol,
+                curRec,
+                mrec.infoTemplate
+            );
+            console.log("esri.Graphic: ", graphic);
+
+            featureEditor.loadingIcon.show();
+
+            featureEditor.featureLayer.applyEdits(null, [graphic], null,
+                function(addResult, updateResult, deleteResult) {
+                    console.log("updateRecord: " + updateResult[0].objectId + ", Success: " + updateResult[0].success);
+                    featureEditor.grid.refresh();
+                    featureEditor.loadingIcon.hide();
+                },
+                function(error) {
+                    var message = "";
+                    if(error.code)message = error.code;
+                    if(error.description)message += error.description;
+                    console.log("updateRecord: " + error.message + ", " + message, error);
+                    featureEditor.grid.refresh();
+                    featureEditor.loadingIcon.hide();
+                    alert("Unable to update. " + error.message + ", " + message);
+                }
+            ); // applyEdits
+        //~ }
+        //~ catch(err) {
+            //~ console.log("updateRecord fail: ", err);
+            //~ alert("Unable to complete update. \n" + err.message);
+        //~ }
     }; // featureEditor.updateRecord
 
     /**
@@ -764,6 +778,15 @@ require([
     featureEditor.utils.validateURL = function(/* String */ url){
         return  /^(ftp|http|https):\/\/[^ "]+$/.test(url);
     };
+
+
+    featureEditor.utils.strStartsWith = function(str, prefix, isCI) {
+        if(isCI ? isCI : false) {
+            str = str.toLowerCase();
+            prefix = prefix.toLowerCase();
+        }
+        return str.indexOf(prefix, 0) === 0;
+    }; // strStartsWith
 
 
     /**
@@ -942,23 +965,20 @@ require([
                 idProperty:dataIDProperty
             });
 
-            var CustomGrid = declare([OnDemandGrid,Selection,CellSelection,Keyboard]);
+            var CustomGrid = declare([OnDemandGrid, Selection, CellSelection, Keyboard]);
 
             // Dojo's dGrid
             featureEditor.grid = new CustomGrid({
-                store:featureEditor.store,
-                columns:object,
-                selectionMode:'single'/*,
-                noDataMessage:'Nothing found.'*/
+                store:          featureEditor.store,
+                columns:        object,
+                selectionMode:  'single'    /*, noDataMessage:'Nothing found.' */
             }, 'grid');
 
-
-            //featureEditor.utils._setListeners();
-
+            //featureEditor.utils._setListeners(); // call in updateGrid
         }
         catch(err){
             complete = false;
-            console.log("createGrid: " + err.message);
+            console.log("createGrid error: ", err);
         }
 
         return complete;
@@ -1001,7 +1021,7 @@ require([
     }; // featureEditor.utils.createAddGrid
 
 
-    featureEditor.utils.updateGrid = function(featureSet, pageNumber,/* Array */ arr) {
+    featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr) {
         console.log("featureEditor.utils.updateGrid. featureSet, pageNumber, arr: ", featureSet, pageNumber, arr);
 
         var data = [];
@@ -1149,7 +1169,7 @@ require([
 
             }
             catch(err){
-                console.log("_renderCellHandler: " + err.message);
+                console.log("_renderCellHandler error: ", err);
             }
         }
     }; // featureEditor.utils._renderCellHandler
@@ -1242,27 +1262,32 @@ require([
     featureEditor.utils._setListeners = function() {
         console.log("featureEditor.utils._setListeners");
 
-        if(featureEditor.dgridRowClickListener != null)featureEditor.dgridRowClickListener.remove();
-        if(featureEditor.dgridCellClickListener != null)featureEditor.dgridCellClickListener.remove();
+        if(featureEditor.dgridRowClickListener != null) featureEditor.dgridRowClickListener.remove();
+        if(featureEditor.dgridCellClickListener != null) featureEditor.dgridCellClickListener.remove();
 
-        featureEditor.dgridRowClickListener = featureEditor.grid.on(".dgrid-row:click",function(event){
-            var stuff = featureEditor.grid.row(event);
-            console.log(stuff.data);
-            featureEditor.currentRecord = stuff.data;
-        });
-
-        featureEditor.dgridCellClickListener = featureEditor.grid.on(".dgrid-cell:dblclick",function(event){
-            var stuff = featureEditor.grid.cell(event);
-
-            var undo =  typeof (stuff.column.undo);
-            var save =  typeof (stuff.column.save);
-
-            //Check for double clicks on the Save and Undo buttons
-            if(typeof(stuff.column) !== "undefined" && ( save == "undefined" && undo == "undefined")){
-                console.log(stuff.element.innerHTML);
-                featureEditor.utils._renderCellHandler(stuff.row,null,stuff.element);
+        featureEditor.dgridRowClickListener = featureEditor.grid.on(".dgrid-row:click",
+            function(event) {
+                console.log("featureEditor.grid.on.dgrid-row:click. event: ", event);
+                var stuff = featureEditor.grid.row(event);
+                console.log("set featureEditor.currentRecord = row = stuff.data. stuff: ", stuff);
+                featureEditor.currentRecord = stuff.data;
             }
-        });
+        );
+
+        featureEditor.dgridCellClickListener = featureEditor.grid.on(".dgrid-cell:dblclick",
+            function(event) {
+                console.log("featureEditor.grid.on.dgrid-cell:dblclick. event: ", event);
+                var stuff = featureEditor.grid.cell(event);
+                console.log("cell: ", stuff);
+                var undo =  typeof (stuff.column.undo);
+                var save =  typeof (stuff.column.save);
+                //Check for double clicks on the Save and Undo buttons
+                if(typeof(stuff.column) !== "undefined" && ( save == "undefined" && undo == "undefined")) {
+                    console.log("cell is not undo, nor save. html: ", stuff.element.innerHTML);
+                    featureEditor.utils._renderCellHandler(stuff.row, null, stuff.element);
+                }
+            }
+        );
 //            controller.grid.on(mouseUtil.enterRow, function(event){
 //                var row = controller.grid.row(event);
 //                console.log("mouseover " + row);
