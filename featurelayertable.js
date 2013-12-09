@@ -79,7 +79,8 @@ require([
     "dojo/query",
     "dojo/Deferred",
     "dojox/widget/Standby",
-    "dojo/domReady!"],
+    "dojo/domReady!",
+    "dojox/json/ref"],
     function(declare,FeatureLayer,Query,Button,ComboBox,number,OnDemandGrid,ColumnHider,
              Selection,CellSelection,mouseUtil,Keyboard,editor,Memory,on,when,request,query,Deferred,Standby) {
 
@@ -114,8 +115,9 @@ require([
      * within your mapping application.
      * @param useQueryString use any user input into the query string text box otherwise ignore
      */
-    featureEditor.init = function(/* boolean */useQueryString) {
+    featureEditor.init = function(/* boolean */ useQueryString) {
         console.log("featureEditor.init. useQueryString: ", useQueryString);
+        // TODO: bug: after reload edited page dgrid.dirty is lost forever
 
         dojo.byId("grid").style.visibility = "visible";
 
@@ -341,6 +343,12 @@ require([
                 i++;
             }
 
+            // TODO: action buttons must be done like this: http://jsfiddle.net/knokit/KFkNB/4/
+            // http://stackoverflow.com/questions/13192846/how-to-revert-single-edited-row-in-dojo-dgrid
+            // about dirty: https://github.com/SitePen/dgrid/wiki/editor
+            // http://www.sitepen.com/blog/2011/10/26/introducing-the-next-grid-dgrid/
+            // http://reuben-in-rl.blogspot.ru/2011/12/baby-steps-with-dojo-datagrid-and.html
+
             //Add the Save button
             columnArr[i] =  {save:"Save", renderCell:
                 function(object, data, cell) {
@@ -380,17 +388,20 @@ require([
                         label : "Undo",
                         disabled : true,
                         style: "visibility:visible",
-                        onClick: dojo.hitch(this, function(event) {
-                            if(this.grid.id == "grid"){
-                                featureEditor.utils.revertLocalRecord();
+                        onClick: dojo.hitch(this,
+                            function(event) {
+                                console.log("undoButton.onClick. event: ", event);
+                                if(this.grid.id == "grid") {
+                                    featureEditor.utils.revertLocalRecord();
+                                }
+                                else{
+                                    featureEditor.utils.revertLocalAddRecord();
+                                }
+                                //~ var b = event.currentTarget.children[0].id;
+                                //~ var c = dijit.byId(b);
+                                //~ c.set('disabled',true);
                             }
-                            else{
-                                featureEditor.utils.revertLocalAddRecord();
-                            }
-                            var b = event.currentTarget.children[0].id;
-                            var c = dijit.byId(b);
-                            c.set('disabled',true);
-                        })
+                        )
                     }, cell.appendChild(document.createElement("div")));
                     //console.log("render cell 'undo button': ", undoBtn);
                 }
@@ -514,7 +525,7 @@ require([
 
 
     /**
-     * Updates a single existing record in the feature service.
+     * Updates a current existing record in the feature service.
      * NOTE: Feature must contain a valid OBJECTID field!
      */
     featureEditor.updateRecord = function(curRec) {
@@ -533,7 +544,7 @@ require([
         var oid = parseInt(curRec.OBJECTID, 10);
 
         var dirty = featureEditor.grid.dirty;
-        console.debug("featureEditor.grid.dirty: ", dirty);
+        console.debug("grid.dirty: ", featureEditor.utils.toJson(dirty));
         var hasData = false;
 
         // find master record
@@ -800,7 +811,18 @@ require([
             prefix = prefix.toLowerCase();
         }
         return str.indexOf(prefix, 0) === 0;
-    }; // strStartsWith
+    }; // featureEditor.utils.strStartsWith
+
+
+    featureEditor.utils.toJson = function(obj) {
+        return dojox.json.ref.toJson(obj);
+    }; // featureEditor.utils.toJson
+
+
+    featureEditor.utils.fromJson = function(str) {
+    //    this.log("mpvlib.fromJson: " + str);
+        return dojox.json.ref.fromJson(str);
+    }; // featureEditor.utils.fromJson
 
 
     /**
@@ -883,16 +905,31 @@ require([
 
     }; // featureEditor.utils.addNewLocalRecord
 
+
     /**
-     * Reverts a single local record update in the dgrid only.
+     * Reverts a current local record update in the dgrid only.
      * Does not push the change to the server.
      */
     featureEditor.utils.revertLocalRecord = function() {
-        console.log("featureEditor.utils.revertLocalRecord");
-        var dirty = featureEditor.grid.dirty;
-        var id = Object.keys(dirty)[0];
-        delete dirty[id];
-        featureEditor.grid.refresh();
+        try {
+            var oid = parseInt(featureEditor.currentRecord.OBJECTID, 10);
+            console.log("featureEditor.utils.revertLocalRecord, oid: ", oid);
+            var dirty = featureEditor.grid.dirty;
+            console.debug("grid.dirty: ", featureEditor.utils.toJson(dirty));
+            // grid.dirty:  {"1":{"LABEL":"Добавить1"},"2":{"LABEL":"Удалить2"},"3":{"LABEL":"Удалить"}}
+            for(var key in dirty) {
+                console.debug("dirty key val: ", key, dirty[key]);
+                if(key == oid) {
+                    delete dirty[key];
+                    console.debug("deleted");
+                    break;
+                }
+            }
+            featureEditor.grid.refresh();
+        } catch(ex) {
+            console.log("revertLocalRecord fail. error: ", ex);
+            alert("Undo failed: " + ex.message + "/n" + ex.description);
+        }
     }; // featureEditor.utils.revertLocalRecord
 
 
