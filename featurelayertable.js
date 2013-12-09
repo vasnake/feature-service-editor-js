@@ -418,23 +418,26 @@ require([
                         label : "Delete",
                         disabled : true,
                         style: "visibility:visible",
-                        onClick: dojo.hitch(this,function(event){
-                            if(this.grid.id == "grid"){
-                                var test = confirm("Really delete?");
-                                if(test == true){
-                                    featureEditor.deleteFeature(featureEditor.currentRecord,null,true);
+                        onClick: dojo.hitch(this,
+                            function(event) {
+                                console.log("deleteButton.onClick. event: ", event);
+                                if(this.grid.id == "grid"){
+                                    var test = confirm("Really delete?");
+                                    if(test == true) {
+                                        featureEditor.deleteFeature(featureEditor.currentRecord, null, true);
+                                    }
+                                    else{
+                                        //featureEditor.utils.revertLocalRecord();
+                                    }
                                 }
                                 else{
-                                    featureEditor.utils.revertLocalRecord();
+                                    //featureEditor.utils.revertLocalAddRecord();
                                 }
+                                //~ var b = event.currentTarget.children[0].id;
+                                //~ var c = dijit.byId(b);
+                                //~ c.set('disabled',true);
                             }
-                            else{
-                                //featureEditor.utils.revertLocalAddRecord();
-                            }
-                            var b = event.currentTarget.children[0].id;
-                            var c = dijit.byId(b);
-                            c.set('disabled',true);
-                        })
+                        )
                     }, cell.appendChild(document.createElement("div")));
                     //console.log("render cell 'delete button': ", deleteBtn);
                 }
@@ -688,61 +691,60 @@ require([
      * @param confirm use an alert to confirm if delete was successful.
      */
     featureEditor.deleteFeature = function(/* Object */ data, /* String */ token, /* boolean */ confirm) {
+        // featureEditor.deleteFeature(featureEditor.currentRecord, null, true);
         console.log("featureEditor.deleteFeature. data, token, confirm: ", data, token, confirm);
+        var oid = parseInt(data.OBJECTID, 10);
+
+        // find master record
+        var mrec = null;
+        console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
+        for(var ind in featureEditor.masterRecordArr) {
+            var mr = featureEditor.masterRecordArr[ind];
+            if(mr.attributes['OBJECTID'] == oid) {
+                mrec = mr;
+                break;
+            }
+        }
+        if(mrec == null) {
+            alert("Unable to find feature. Master record undefined");
+            return;
+        }
 
         var graphic = null;
-        try{
-            if(featureEditor.masterRecordArr.length >= 1){
-                graphic = new esri.Graphic(
-                        null,
-                        null,
-                        featureEditor.currentRecord,
-                        null
-                );
-            }
-            else{
-                alert("Unable to delete feature. Row is empty?");
-                return false;
-            }
-        }
-        catch(err){
-            console.log("deleteFeature: " + err.message);
-            alert("Unable to delete feature - " + err.message);
-            return false;
-        }
+        graphic = new esri.Graphic(
+            null,
+            null,
+            mrec.attributes,
+            null
+        );
 
-        featureEditor.featureLayer.applyEdits(null,null,[graphic], function(adds,updates,deletes){
-            if(deletes[0].success == true){
-                //featureEditor.queryRecordsByPage(1);
-                //featureEditor.grid.save();
-                console.log("deleteFeatures successful on ObjectID: " + deletes[0].objectId + ", success: " + deletes[0].success);
+        featureEditor.featureLayer.applyEdits(null, null, [graphic],
+            function(adds, updates, deletes) {
+                if(deletes[0].success == true) {
+                    //featureEditor.queryRecordsByPage(1);
+                    //featureEditor.grid.save();
+                    console.log("deleteFeatures successful on ObjectID: " + deletes[0].objectId + ", success: " + deletes[0].success);
+                    if(confirm) alert("deleteFeatures successful on ObjectID: " + deletes[0].objectId);
+                    featureEditor.init(true);
+                }
+                else{
+                    console.log("deleteFeature: There was a problem with writing the record to database");
+                    featureEditor.grid.refresh();
+                }
                 featureEditor.loadingIcon.hide();
-
-                featureEditor.init(false);
-
-                if(confirm)alert("deleteFeatures successful on ObjectID: " + deletes[0].objectId);
-            }
-            else{
-                console.log("deleteFeature: There was a problem with writing the record to database");
+            },
+            function(error) {
+                //NOTE: There is a bug in which the correct error message is not displayed
+                //Until it's fixed view the response payload in the Network tab of the developer tools.
+                var message = "";
+                if(error.code) message = error.code;
+                if(error.description) message += error.description;
+                console.log("deleteFeature: " + error.message + ", " + message);
+                alert("There was a problem deleting record: " + error.message + ", " + message);
                 featureEditor.grid.refresh();
-
+                featureEditor.loadingIcon.hide();
             }
-
-            featureEditor.loadingIcon.hide();
-
-        },function(error){
-            //NOTE: There is a bug in which the correct error message is not displayed
-            //Until it's fixed view the response payload in the Network tab of the developer tools.
-            var message = "";
-            if(error.code)message = error.code;
-            if(error.description)message += error.description;
-            console.log("deleteFeature: " + error.message + ", " + message);
-
-            featureEditor.grid.refresh();
-            featureEditor.loadingIcon.hide();
-
-            alert("There was a problem deleting: " + error.message + ", " + message);
-        });
+        ); // applyEdits
     }; // featureEditor.deleteFeature
 
 
@@ -833,6 +835,7 @@ require([
      */
     featureEditor.utils.addNewLocalRecord = function() {
         console.log("featureEditor.utils.addNewLocalRecord");
+        // TODO: debug OBJECTID "TBD"
 
         if(featureEditor.grid == null){
             console.log("addNewLocalRecord: unable to create because primary grid is null.");
