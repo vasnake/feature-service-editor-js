@@ -380,7 +380,7 @@ require([
                         label : "Undo",
                         disabled : true,
                         style: "visibility:visible",
-                        onClick: dojo.hitch(this,function(event){
+                        onClick: dojo.hitch(this, function(event) {
                             if(this.grid.id == "grid"){
                                 featureEditor.utils.revertLocalRecord();
                             }
@@ -518,6 +518,17 @@ require([
      * NOTE: Feature must contain a valid OBJECTID field!
      */
     featureEditor.updateRecord = function(curRec) {
+        try {
+            featureEditor._updateRecord(curRec);
+        } catch(err) {
+            console.log("updateRecord fail: ", err);
+            alert("Unable to complete update. \n" + err.message);
+        }
+
+    }; // featureEditor.updateRecord
+
+
+    featureEditor._updateRecord = function(curRec) {
         console.log("featureEditor.updateRecord. save currentRecord: ", curRec);
         var oid = parseInt(curRec.OBJECTID, 10);
 
@@ -525,86 +536,92 @@ require([
         console.debug("featureEditor.grid.dirty: ", dirty);
         var hasData = false;
 
-        //try{
-            for (var property in dirty) {
-                if(property == oid) {
-                    //get object property names
-                    for (var item in dirty[property]) {
-                        if(curRec.hasOwnProperty(item)) {
+        // find master record
+        var mrec = null;
+        console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
+        for(var ind in featureEditor.masterRecordArr) {
+            var mr = featureEditor.masterRecordArr[ind];
+            if(mr.attributes['OBJECTID'] == oid) {
+                mrec = mr;
+                break;
+            }
+        }
+        if(mrec == null) {
+            alert("Unable to update feature. master record undefined");
+            featureEditor.utils.revertLocalRecord();
+            return;
+        }
+
+        // copy feature data
+        console.debug("copy master record data to currentRecord");
+        for(var key in mrec.attributes) {
+            console.debug(key, mrec.attributes[key]);
+            curRec[key] = mrec.attributes[key];
+        }
+
+        // copy grid data
+        for (var property in dirty) {
+            if(property == oid) {
+                //get object property names
+                for (var item in dirty[property]) {
+                    var itemVal = dirty[property][item];
+                    console.debug("grid dirty data: ", item, itemVal);
+                    if(curRec.hasOwnProperty(item)) {
+                        hasData = true;
+                        curRec[item] = itemVal;
+                    }
+                    else{
+                        console.debug("updateRecord - property may be missing from currentRecord: ", item);
+                        if(featureEditor.utils.strStartsWith(item, "_")) {
+                            console.debug("skip protected '_*'");
+                        } else {
                             hasData = true;
-                            curRec[item] = dirty[property][item];
-                        }
-                        else{
-                            console.debug("updateRecord - property may be missing from currentRecord: ", item);
-                            if(featureEditor.utils.strStartsWith(item, "_")) {
-                                console.debug("skip protected '_*'");
-                            } else {
-                                hasData = true;
-                                console.debug("add new attrib");
-                                curRec[item] = dirty[property][item];
-                            }
+                            console.debug("add new attrib");
+                            curRec[item] = itemVal;
                         }
                     }
-                    // record data copied into curRec
-                    break;
                 }
-            } // end for each key in dirty
-
-            if(!hasData) {
-                //alert("Unable to update since nothing changed");
-                console.log("updateRecord: unable to update since nothing changed");
-                featureEditor.utils.revertLocalRecord();
-                return;
+                // record data copied into curRec
+                break;
             }
+        } // end for each key in dirty
 
-            var mrec = null;
-            console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
-            for(var ind in featureEditor.masterRecordArr) {
-                var mr = featureEditor.masterRecordArr[ind];
-                if(mr.attributes['OBJECTID'] == oid) {
-                    mrec = mr;
-                    break;
-                }
+        if(!hasData) {
+            //alert("Unable to update since nothing changed");
+            console.log("updateRecord: unable to update since nothing changed");
+            featureEditor.utils.revertLocalRecord();
+            return;
+        }
+
+        curRec.OBJECTID = oid; // integer instead of string
+        var graphic = new esri.Graphic(
+            mrec.geometry,
+            mrec.symbol,
+            curRec,
+            mrec.infoTemplate
+        );
+        console.debug("esri.Graphic: ", graphic);
+
+        featureEditor.loadingIcon.show();
+
+        featureEditor.featureLayer.applyEdits(null, [graphic], null,
+            function(addResult, updateResult, deleteResult) {
+                console.log("updateRecord.applyEdits.response: " + updateResult[0].objectId + ", Success: " + updateResult[0].success);
+                featureEditor.grid.refresh();
+                featureEditor.loadingIcon.hide();
+            },
+            function(error) {
+                var message = "";
+                if(error.code)message = error.code;
+                if(error.description)message += error.description;
+                console.log("updateRecord.applyEdits.error: " + error.message + ", " + message, error);
+                featureEditor.grid.refresh();
+                featureEditor.loadingIcon.hide();
+                alert("Unable to update. " + error.message + ", " + message);
             }
-            if(mrec == null) {
-                alert("Unable to update feature. master record undefined");
-                featureEditor.utils.revertLocalRecord();
-                return;
-            }
+        ); // applyEdits
+    }; // featureEditor._updateRecord
 
-            curRec.OBJECTID = oid; // integer instead of string
-            var graphic = new esri.Graphic(
-                mrec.geometry,
-                mrec.symbol,
-                curRec,
-                mrec.infoTemplate
-            );
-            console.debug("esri.Graphic: ", graphic);
-
-            featureEditor.loadingIcon.show();
-
-            featureEditor.featureLayer.applyEdits(null, [graphic], null,
-                function(addResult, updateResult, deleteResult) {
-                    console.log("updateRecord.applyEdits.response: " + updateResult[0].objectId + ", Success: " + updateResult[0].success);
-                    featureEditor.grid.refresh();
-                    featureEditor.loadingIcon.hide();
-                },
-                function(error) {
-                    var message = "";
-                    if(error.code)message = error.code;
-                    if(error.description)message += error.description;
-                    console.log("updateRecord.applyEdits.error: " + error.message + ", " + message, error);
-                    featureEditor.grid.refresh();
-                    featureEditor.loadingIcon.hide();
-                    alert("Unable to update. " + error.message + ", " + message);
-                }
-            ); // applyEdits
-        //~ }
-        //~ catch(err) {
-            //~ console.log("updateRecord fail: ", err);
-            //~ alert("Unable to complete update. \n" + err.message);
-        //~ }
-    }; // featureEditor.updateRecord
 
     /**
      * Used to insert a new record/feature into the remote feature service.
