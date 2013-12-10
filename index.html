@@ -33,12 +33,7 @@
         <div >
             <div class="entryDivNameCol">Query String</div>
             <div class="entryDivFieldCol"><input id="query-string" type="text" /> </div>
-        </div> <!--
-        <div class="clear" style="clear: both"></div>
-        <div >
-            <div class="entryDivNameCol">Outfields</div>
-            <div class="entryDivFieldCol"><input id="outfields-string" type="text" /> </div>
-        </div>   -->
+        </div>
         <div class="clear" style="clear: both"></div>
         <div class="loadBtnDiv">
             <button id="load-btn" onclick="featureEditor.init(true)">Load</button>
@@ -61,16 +56,6 @@
 
     <button dojoType="dijit.form.Button" onclick="featureEditor.queryRecordsByPage(featureEditor.pageInfo.currentPage + 1);">
         Next Page
-    </button>
-
-    <span id="btnSpan"> | </span>
-
-    <button id="add-new-record-btn" class="recordBtn" disabled="true" dojoType="dijit.form.Button" onclick="featureEditor.utils.addNewLocalRecord()" >
-        Add Record
-    </button>
-
-    <button id="remove-new-record-btn" class="recordBtn" disabled="true" dojoType="dijit.form.Button" onclick="featureEditor.utils.removeNewLocalRecord()" >
-        Remove New Record
     </button>
 </div>
 

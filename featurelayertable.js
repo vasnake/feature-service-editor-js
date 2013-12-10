@@ -118,6 +118,9 @@ require([
     featureEditor.init = function(/* boolean */ useQueryString) {
         console.log("featureEditor.init. useQueryString: ", useQueryString);
         // TODO: bug: after reload edited page dgrid.dirty is lost forever
+        // TODO: enhancement: invoke init with query string, like
+        //  var queryString = document.getElementById("query-string").value;
+        //  featureEditor.init(queryString);
 
         dojo.byId("grid").style.visibility = "visible";
 
@@ -828,6 +831,12 @@ require([
 
 
     /**
+     * DEPRECATED
+     * Button 'Add record' onClick handler. Without graphic.geometry this functionality is preposterous.
+     *   <button id="add-new-record-btn" class="recordBtn" disabled="true" dojoType="dijit.form.Button"
+     *       onclick="featureEditor.utils.addNewLocalRecord()" >
+     *       Add Record
+     *   </button>
      * Simply adds a new row to the currently visible grid. Does not automatically push
      * changes to the remote store.
      * Disables the addNewRecord button on the new row has been through a double-click > save
@@ -835,7 +844,7 @@ require([
      */
     featureEditor.utils.addNewLocalRecord = function() {
         console.log("featureEditor.utils.addNewLocalRecord");
-        // TODO: debug OBJECTID "TBD"
+        // TODO: debug OBJECTID "TBD" issue
 
         if(featureEditor.grid == null){
             console.log("addNewLocalRecord: unable to create because primary grid is null.");
@@ -950,6 +959,12 @@ require([
 
 
     /**
+     * DEPRECATED
+     * Button 'Remove new record' onClick handler. Removing 'add new record' functionality we also remove this:
+     *   <button id="remove-new-record-btn" class="recordBtn" disabled="true" dojoType="dijit.form.Button"
+     *       onclick="featureEditor.utils.removeNewLocalRecord()" >
+     *       Remove New Record
+     *   </button>
      * Rolls back a newly enter row by deleting it from the grid.store.
      */
     featureEditor.utils.removeNewLocalRecord = function() {
@@ -1079,7 +1094,7 @@ require([
      *
      * @param arr Array of field names, like ["OBJECTID", "RECID", "LABEL", "DESCR", "NOTE"]
      */
-        featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr) {
+    featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr) {
         console.log("featureEditor.utils.updateGrid. featureSet, pageNumber, arr: ", featureSet, pageNumber, arr);
 
         var data = [];
@@ -1419,19 +1434,25 @@ require([
      */
     featureEditor.ui.handleAddRecord = function(/* boolean  */ value) {
         console.log("featureEditor.ui.handleAddRecord. value: ", value);
-
-        if(value == true){
-            dijit.byId("remove-new-record-btn").set("disabled",true);
-            dojo.style("remove-new-record-btn","color","#C0C0C0");
-            dijit.byId("add-new-record-btn").set("disabled",false);
-            dojo.style("add-new-record-btn","color","#FF0000");
+        try {
+            if(value == true) {
+                dijit.byId("remove-new-record-btn").set("disabled",true);
+                dojo.style("remove-new-record-btn","color","#C0C0C0");
+                dijit.byId("add-new-record-btn").set("disabled",false);
+                dojo.style("add-new-record-btn","color","#FF0000");
+            } else {
+                dojo.byId("entryEditableField").innerHTML = "NOT EDITABLE";
+                dijit.byId("remove-new-record-btn").set("disabled",true);
+                dojo.style("remove-new-record-btn","color","#C0C0C0");
+                dijit.byId("add-new-record-btn").set("disabled",true);
+                dojo.style("add-new-record-btn","color","#C0C0C0");
+            }
         }
-        else{
-            dojo.byId("entryEditableField").innerHTML = "NOT EDITABLE";
-            dijit.byId("remove-new-record-btn").set("disabled",true);
-            dojo.style("remove-new-record-btn","color","#C0C0C0");
-            dijit.byId("add-new-record-btn").set("disabled",true);
-            dojo.style("add-new-record-btn","color","#C0C0C0");
+        catch(ex) {
+            console.log("Error in featureEditor.ui.handleAddRecord. \n" +
+                'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
         }
     }; // featureEditor.ui.handleAddRecord
 
@@ -1442,15 +1463,20 @@ require([
      */
     featureEditor.ui.handleAddRemoveEditGrid = function(/* boolean */ value) {
         console.log("featureEditor.ui.handleAddRemoveEditGrid. value: ", value);
+        try {
+            if(value == true) {
+                dojo.style("add-grid","visibility","visible");
+                dojo.style("add-grid","display","block");
+            } else {
+                dojo.style("add-grid","visibility","hidden");
+                dojo.style("add-grid","display","none");
+            }
+        } catch(ex) {
+            console.log("Error in featureEditor.ui.handleAddRemoveEditGrid. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
 
-        if(value == true){
-            dojo.style("add-grid","visibility","visible");
-            dojo.style("add-grid","display","block");
-        }
-        else{
-            dojo.style("add-grid","visibility","hidden");
-            dojo.style("add-grid","display","none");
-        }
     }; // featureEditor.ui.handleAddRemoveEditGrid
 
 }); // dojo.require
