@@ -1,6 +1,6 @@
 #feature-service-editor
 
-This ready-to-go JavaScript prototype provides very basic SQL-like capabilities to add, delete, edit or search for data in "point" based feature services with or without a map. It is intended for reading any valid ArcGIS FeatureService. 
+This ready-to-go JavaScript prototype provides very basic SQL-like capabilities to delete, edit or search for data in feature services with or without a map. It is intended for reading any valid ArcGIS FeatureService.
 
 Use this application as-is, embed it in your own application, extend or modify it to meet your needs. Basically have fun, and feedback or contributions are appreciated!
 
@@ -9,16 +9,13 @@ Use this application as-is, embed it in your own application, extend or modify i
 1. Copy-and-paste a FeatureService endpoint into the field labeled "Feature Service", or use the pulldown list and set up your own FeatureServices using the ComboBox.
 	* **IMPORTANT**: The FeatureService must have an <code>OBJECTID</code> field.
 2. Click the "Load" button.
-3. Double click on any field to enable the edit mode. Edit the field. For that row the Save, Undo and Delete buttons should become visible and enabled.
+3. Double click on any cell to enable the edit mode. Edit the field. For that row the Save, Undo and Delete buttons should become visible and enabled.
 4. When you are done editing select "Save", "Undo" or "Delete".
 
 ## To add a new row of data
-Allows for the ability to add one new row of data at a time.
 
-1. After loading a feature service, select the "Add Record" button. This creates a new grid that you can use to enter the data. It should be highlighted with yellow cells.
-2. Enter your changes in the new grid.
-3. When you are done adding data select "Save" or "Undo". 
-4. Or, if you want to delete your changes without saving them select the "Remove New Record" button. 
+Use map Editor widget.
+[ArcGIS API for JavaScript - Editing](https://developers.arcgis.com/en/javascript/jshelp/inside_editing.html).
 
 ## Using Query String
 
@@ -60,14 +57,16 @@ Query String lets you set the SQL string for returning data. When left blank it 
 
 ## Issues
 
-Find a bug or want to request a new feature?  Please use the [submit new Issue](https://github.com/Esri/feature-service-editor-js/issues/new) feature on this repo.
+Find a bug or want to request a new feature?  Please use the [submit new Issue](https://github.com/vasnake/feature-service-editor-js/issues/new) feature on this repo.
 
 ## Contributing
 
-Anyone and everyone is welcome to contribute. 
+Anyone and everyone is welcome to contribute.
 
 ## Licensing
 Copyright 2013 Esri
+
+Debugged and adapted for real life by vasnake@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

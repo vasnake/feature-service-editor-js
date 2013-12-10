@@ -1,16 +1,25 @@
 # feature-service-editor-js - Changelog
 
+## Version 0.6 - Dec. 10, 2013
+
+- Editor now can work with any geometry type of feature service, not only Points.
+- Fixed update record bug.
+- Fixed revert/undo bug.
+- Fixed delete bug.
+- Removed Add New Record and Delete New Record buttons. This functionality is preposterous without graphic.geometry.
+- Code revision shows that we still need rewrite lots of things.
+
 ## Version 0.5 - Dec. 3, 2013
 - Fixed null attribute bug. If a null attribute existed the grid would fail to load.
 - Fixed minor bugs related to how the library determined parameters from the Feature Service, for example it now uses the correct syntax to determine the Feature Service's spatialReference.
-- **New:** 
+- **New:**
 	- Added a pulldown list for URLs. Now the apps can be used to either manage multiple Feature Service, or you can still paste a URL into the field and click load.
 
 ## Version 0.4.1 - Aug. 5, 2013
 - Fixed a memory leak whereby old dgrid click and dblclick listeners were not being properly destroyed when the grid was refreshed.
 
 ## Version 0.4 - Aug. 2, 2013
-- **New:** 
+- **New:**
 	- Add one new row of data at a time.
 	- Delete one row of data at a time.
 	- Stop feature service loading if geometry != "point". This app version only handles point based features.
@@ -18,7 +27,7 @@
 	- Internal: Added a UI (user interface)namespace for helping to centralize major UI functions: featureEditor.ui
 	- Internal: Added a boolean to _setListeners(true) to enable/disable ability to store the current row object in featureEditor.currentRow.
 
-- **Minor Breaking Changes:** 
+- **Minor Breaking Changes:**
 	- Changed name of featureEditor.revertRecord to featureEditor.utils.revertLocalRecord. This makes way for future functionality that allows for reverting remote records and keeps utils reserved for local changes.
 	- Renamed all div ids using the dash "-" pattern. Still have some renaming to do on other divs.
 
