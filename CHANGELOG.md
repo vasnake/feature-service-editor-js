@@ -7,7 +7,7 @@
 - Fixed revert/undo bug.
 - Fixed delete bug.
 - Removed Add New Record and Delete New Record buttons. This functionality is preposterous without graphic.geometry.
-- Code revision shows that we still need rewrite lots of things.
+- Code revision shows that we still need to rewrite a lots of things.
 
 ## Version 0.5 - Dec. 3, 2013
 - Fixed null attribute bug. If a null attribute existed the grid would fail to load.

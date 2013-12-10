@@ -21,7 +21,6 @@ Use map Editor widget.
 
 Query String lets you set the SQL string for returning data. When left blank it will return all data. As an example, to data for record 115 would be to specify: objectId='115'.
 
-
 ## To hook your map to grid events
 
 1. Add your map code into the appropriate listener in the <code>controller.utils._setListeners </code> function.
@@ -29,10 +28,6 @@ Query String lets you set the SQL string for returning data. When left blank it 
 ## Main Editor Window
 
 ![](screenshot.png)
-
-## Add Record Window
-
-![] (screenshot4.png)
 
 ## Control Panel
 
