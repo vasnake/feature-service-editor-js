@@ -78,6 +78,40 @@
     <label>Grid Legend</label>
     <div id="grid-legend" style="padding-top: 15px;"></div>
 </div>
+
+<script type="text/javascript">
+require([
+    'dojo/_base/declare',
+    "dijit/form/ComboBox",
+    "dojo/store/Memory"],
+    function(declare, ComboBox, Memory) {
+        //Set up the URL pulldown list so that you can manage more than one Feature Service.
+        var urlStore = new Memory({
+            data: [
+                {name:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
+                    id:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0"},
+                {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
+                    id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0"},
+                {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0",
+                    id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0"}
+            ]
+        });
+
+        //http://dojotoolkit.org/reference-guide/1.9/dijit/form/ComboBox.html
+        //NOTE: may not work properly with IE8!
+        var cbFsEndpoint = new ComboBox({
+            id: "fsEndpoint",
+            name: "url",
+            value: "http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
+            store: urlStore,
+            searchAttr: "name"
+        }, "fsEndpoint");
+        cbFsEndpoint.set('style',{width: '350px'});
+    }
+);
+
+</script>
+
 </body>
 
 </html>

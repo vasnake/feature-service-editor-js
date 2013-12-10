@@ -84,30 +84,6 @@ require([
     function(declare,FeatureLayer,Query,Button,ComboBox,number,OnDemandGrid,ColumnHider,
              Selection,CellSelection,mouseUtil,Keyboard,editor,Memory,on,when,request,query,Deferred,Standby) {
 
-        //Set up the URL pulldown list so that you can manage more than one Feature Service.
-        var urlStore = new Memory({
-            data: [
-                {name:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
-                    id:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0"},
-                {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
-                    id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0"},
-                {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0",
-                    id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0"}
-            ]
-        });
-
-        //http://dojotoolkit.org/reference-guide/1.9/dijit/form/ComboBox.html
-        //NOTE: may not work properly with IE8!
-        var comboBox = new ComboBox({
-            id: "fsEndpoint",
-            name: "url",
-            value: "http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
-            store: urlStore,
-            searchAttr: "name"
-        }, "fsEndpoint");
-
-        comboBox.set('style',{width: '350px'});
-
     /**
      * Begin by initializing the library here.
      * <b>IMPORTANT:</b> This app uses a stand-alone FeatureService that is not
