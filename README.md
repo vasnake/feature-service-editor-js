@@ -28,7 +28,6 @@ Query String lets you set the SQL string for returning data. When left blank it 
 ## TODO
 
 - Debug Load/Reload/Refresh (Init) function. After second call of Init dgrid.dirty is lost forever.
-- Remove Save/Undo/Delete grid buttons and set only one row of action buttons. Any way, actions works only for current record.
 
 ## Main Editor Window
 
