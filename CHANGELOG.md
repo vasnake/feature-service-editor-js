@@ -1,5 +1,9 @@
 # feature-service-editor-js - Changelog
 
+## Version 0.7 - Dec. 10, 2013
+
+- Grid row acions buttons removed. Since row actions (save, undo, delete) works only for Current Record, we need only three actions buttons.
+
 ## Version 0.6 - Dec. 10, 2013
 
 - Editor now can work with any geometry type of feature service, not only Points.
