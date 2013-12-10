@@ -57,6 +57,17 @@
     <button dojoType="dijit.form.Button" onclick="featureEditor.queryRecordsByPage(featureEditor.pageInfo.currentPage + 1);">
         Next Page
     </button>
+    |
+    Current record
+    <button dojoType="dijit.form.Button" onclick="featureEditor.saveCurrentRecord();">
+        Save
+    </button>
+    <button dojoType="dijit.form.Button" onclick="featureEditor.resetCurrentRecord();">
+        Undo
+    </button>
+    <button dojoType="dijit.form.Button" onclick="featureEditor.deleteCurrentRecord();">
+        Delete
+    </button>
 </div>
 
 <div id="add-grid" class="grid2"></div>

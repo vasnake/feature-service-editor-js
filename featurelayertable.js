@@ -314,19 +314,18 @@ require([
             var columnArr = [];
             var length = featureEditor.featureEditDetails.length;
 
-            for (var key in featureSet.features[0].attributes){
+            for (var key in featureSet.features[0].attributes) {
                 console.log(key);
                 arr[i] = key;
 
                 //See if there are any editable features.
                 var editTest = -1;
-                if(length > 0){
+                if(length > 0) {
                     editTest = featureEditor.featureEditDetails.indexOf(key);
                 }
 
                 //Item is editable if != -1
-                if(editTest != -1){
-
+                if(editTest != -1) {
                     columnArr[i] = editor({
                         label:key.toString(),
                         field:key.toString(),
@@ -334,117 +333,15 @@ require([
                         editor:"text",
                         editOn:"dblclick"
                     });
-                }
-                else{
+                } else {
                     columnArr[i] = {
                         label:key.toString(),
                         field:key.toString(),
                         hidden:false
                     };
                 }
-
                 i++;
-            }
-
-            // TODO: action buttons must be done like this: http://jsfiddle.net/knokit/KFkNB/4/
-            // http://stackoverflow.com/questions/13192846/how-to-revert-single-edited-row-in-dojo-dgrid
-            // about dirty: https://github.com/SitePen/dgrid/wiki/editor
-            // http://www.sitepen.com/blog/2011/10/26/introducing-the-next-grid-dgrid/
-            // http://reuben-in-rl.blogspot.ru/2011/12/baby-steps-with-dojo-datagrid-and.html
-
-            //Add the Save button
-            columnArr[i] =  {save:"Save", renderCell:
-                function(object, data, cell) {
-                    //var btn =
-                    Button({
-                        showLabel : false,
-                        iconClass : "saveIcon16",
-                        disabled : true,
-                        style: "visibility:visible",
-                        onClick: dojo.hitch(this,
-                            function(event) {
-                                console.log("saveButton.onClick. event: ", event);
-                                if(this.grid.id == "grid"){
-                                    featureEditor.updateRecord(featureEditor.currentRecord);
-                                }
-                                else{
-                                    //alert('hi');
-                                    featureEditor.addNewRecord();
-                                }
-                                // Uncaught TypeError: Cannot read property 'id' of undefined
-//                                var b = event.currentTarget.children[0].id;
-//                                var c = dijit.byId(b);
-//                                c.set('disabled',true);
-                            })
-                    }, cell.appendChild(document.createElement("div")));
-                    //console.log("render cell. save button created: ", btn);
-                }
-            };
-
-            //Add the Undo button
-            columnArr[i+1] =  {undo: "Undo", renderCell:
-                function(object, data, cell) {
-                    //var undoBtn =
-                    Button({
-                        showLabel : false,
-                        iconClass : "undoIcon16",
-                        label : "Undo",
-                        disabled : true,
-                        style: "visibility:visible",
-                        onClick: dojo.hitch(this,
-                            function(event) {
-                                console.log("undoButton.onClick. event: ", event);
-                                if(this.grid.id == "grid") {
-                                    featureEditor.utils.revertLocalRecord();
-                                }
-                                else{
-                                    featureEditor.utils.revertLocalAddRecord();
-                                }
-                                //~ var b = event.currentTarget.children[0].id;
-                                //~ var c = dijit.byId(b);
-                                //~ c.set('disabled',true);
-                            }
-                        )
-                    }, cell.appendChild(document.createElement("div")));
-                    //console.log("render cell 'undo button': ", undoBtn);
-                }
-            };
-
-
-            //Add the Delete button
-            columnArr[i+2] =  {delColumn: "Delete", renderCell:
-                function(object, data, cell) {
-                    //var deleteBtn =
-                    Button({
-                        showLabel : false,
-                        iconClass : "deleteIcon16",
-                        label : "Delete",
-                        disabled : true,
-                        style: "visibility:visible",
-                        onClick: dojo.hitch(this,
-                            function(event) {
-                                console.log("deleteButton.onClick. event: ", event);
-                                if(this.grid.id == "grid"){
-                                    var test = confirm("Really delete?");
-                                    if(test == true) {
-                                        featureEditor.deleteFeature(featureEditor.currentRecord, null, true);
-                                    }
-                                    else{
-                                        //featureEditor.utils.revertLocalRecord();
-                                    }
-                                }
-                                else{
-                                    //featureEditor.utils.revertLocalAddRecord();
-                                }
-                                //~ var b = event.currentTarget.children[0].id;
-                                //~ var c = dijit.byId(b);
-                                //~ c.set('disabled',true);
-                            }
-                        )
-                    }, cell.appendChild(document.createElement("div")));
-                    //console.log("render cell 'delete button': ", deleteBtn);
-                }
-            };
+            } // for each FC attribute
 
             featureEditor.columnNamesArr = columnArr;
 
@@ -534,15 +431,15 @@ require([
      * Updates a current existing record in the feature service.
      * NOTE: Feature must contain a valid OBJECTID field!
      */
-    featureEditor.updateRecord = function(curRec) {
+    featureEditor.updateFeature = function(curRec) {
         try {
             featureEditor._updateRecord(curRec);
         } catch(err) {
-            console.log("updateRecord fail: ", err);
+            console.log("updateFeature fail: ", err);
             alert("Unable to complete update. \n" + err.message);
         }
 
-    }; // featureEditor.updateRecord
+    }; // featureEditor.updateFeature
 
 
     featureEditor._updateRecord = function(curRec) {
@@ -565,7 +462,7 @@ require([
         }
         if(mrec == null) {
             alert("Unable to update feature. master record undefined");
-            featureEditor.utils.revertLocalRecord();
+            featureEditor.utils.revertCurrentRecord();
             return;
         }
 
@@ -606,7 +503,7 @@ require([
         if(!hasData) {
             //alert("Unable to update since nothing changed");
             console.log("updateRecord: unable to update since nothing changed");
-            featureEditor.utils.revertLocalRecord();
+            featureEditor.utils.revertCurrentRecord();
             return;
         }
 
@@ -751,53 +648,71 @@ require([
     }; // featureEditor.deleteFeature
 
 
-    /**
-     * DEPRECATED as of v0.4
-     * Updates an existing the record/feature in the remote feature service.
-     * @param data Object
-     * @param token String
-     */
-    featureEditor.applyEdits = function(/* Object */ data, /* String */ token) {
-        console.log("featureEditor.applyEdits. data, token:", data, token);
-        if(token == null) token = "";
+// INFO: row action buttons can be done like this: http://jsfiddle.net/knokit/KFkNB/4/
+// http://stackoverflow.com/questions/13192846/how-to-revert-single-edited-row-in-dojo-dgrid
+// about dirty: https://github.com/SitePen/dgrid/wiki/editor
+// http://www.sitepen.com/blog/2011/10/26/introducing-the-next-grid-dgrid/
+// http://reuben-in-rl.blogspot.ru/2011/12/baby-steps-with-dojo-datagrid-and.html
 
-        request.post(featureEditor.restEndpoint + "/updateFeatures",{
-            sync:false,
-            timeout:featureEditor.localEnum().HTTP_REQUEST_TIMEOUT,
-            handlAs:"json",
-            data:{
-                features:data,
-                f:"json",
-                rollbackOnFailure:"false",
-                token:token
-            },
-            headers:{
-                "X-Requested-With": null
-            }
-        }).then(function(response){
-            var t = JSON.parse(response);
-            if(t.updateResults[0].success == true){
-                featureEditor.queryRecordsByPage(featureEditor.pageInfo.currentPage);
-                featureEditor.grid.save();
-                console.log("applyEdits successful: " + response);
-                featureEditor.loadingIcon.hide();
-            }
-            else{
-                console.log("applyEdits: There was a problem with updating the record");
-                alert("Unable to update record: Error " + t.updateResults[0].error.code + ", " + t.updateResults[0].error.description);
-                featureEditor.grid.refresh();
-                featureEditor.loadingIcon.hide();
-            }
-        }, function(error){
-            var message = "";
-            if(error.code)message = error.code;
-            if(error.description)message += error.description;
-            console.log("updateRecord: " + error.message + ", " + message);
-            alert("There was a problem applying edits." + error.message + ", " + message);
-            featureEditor.grid.refresh();
-            featureEditor.loadingIcon.hide();
-        });
-    }; // featureEditor.applyEdits
+    /**
+     * Button 'Save' onClick handler
+     *   <button dojoType="dijit.form.Button" onclick="featureEditor.saveCurrentRecord();">
+     *       Save
+     *   </button>
+     */
+    featureEditor.saveCurrentRecord = function() {
+        try {
+            var oid = parseInt(featureEditor.currentRecord.OBJECTID);
+            console.log("featureEditor.saveCurrentRecord. oid: ", oid);
+            featureEditor.updateFeature(featureEditor.currentRecord);
+        } catch(ex) {
+            alert("Set current record first by single click on any table row");
+            console.log("Error in featureEditor.saveCurrentRecord. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
+    }; // featureEditor.saveCurrentRecord
+
+
+    /**
+     * Button 'Undo' onClick handler
+     *   <button dojoType="dijit.form.Button" onclick="featureEditor.resetCurrentRecord();">
+     *       Undo
+     *   </button>
+     */
+    featureEditor.resetCurrentRecord = function() {
+        try {
+            var oid = parseInt(featureEditor.currentRecord.OBJECTID);
+            console.log("featureEditor.resetCurrentRecord. oid: ", oid);
+            featureEditor.utils.revertCurrentRecord();
+        } catch(ex) {
+            alert("Set current record first by single click on any table row");
+            console.log("Error in featureEditor.resetCurrentRecord. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
+    }; // featureEditor.resetCurrentRecord
+
+
+    /**
+     * Button 'Delete' onClick handler
+     *   <button dojoType="dijit.form.Button" onclick="featureEditor.deleteCurrentRecord();">
+     *       Delete
+     *   </button>
+     */
+    featureEditor.deleteCurrentRecord = function() {
+        try {
+            var oid = parseInt(featureEditor.currentRecord.OBJECTID);
+            console.log("featureEditor.deleteCurrentRecord. oid: ", oid);
+            if(confirm("Are you really want to DELETE current record?"))
+                featureEditor.deleteFeature(featureEditor.currentRecord, null, true);
+        } catch(ex) {
+            alert("Set current record first by single click on any table row");
+            console.log("Error in featureEditor.deleteCurrentRecord. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
+    }; // featureEditor.deleteCurrentRecord
 
 
     /**
@@ -922,10 +837,10 @@ require([
      * Reverts a current local record update in the dgrid only.
      * Does not push the change to the server.
      */
-    featureEditor.utils.revertLocalRecord = function() {
+    featureEditor.utils.revertCurrentRecord = function() {
         try {
             var oid = parseInt(featureEditor.currentRecord.OBJECTID, 10);
-            console.log("featureEditor.utils.revertLocalRecord, oid: ", oid);
+            console.log("featureEditor.utils.revertCurrentRecord, oid: ", oid);
             var dirty = featureEditor.grid.dirty;
             console.debug("grid.dirty: ", featureEditor.utils.toJson(dirty));
             // grid.dirty:  {"1":{"LABEL":"Добавить1"},"2":{"LABEL":"Удалить2"},"3":{"LABEL":"Удалить"}}
@@ -939,10 +854,10 @@ require([
             }
             featureEditor.grid.refresh();
         } catch(ex) {
-            console.log("revertLocalRecord fail. error: ", ex);
+            console.log("revertCurrentRecord fail. error: ", ex);
             alert("Undo failed: " + ex.message + "/n" + ex.description);
         }
-    }; // featureEditor.utils.revertLocalRecord
+    }; // featureEditor.utils.revertCurrentRecord
 
 
     /**
@@ -1173,7 +1088,6 @@ require([
      */
     featureEditor.utils._renderCellHandler = function(object, data, cell) {
         console.log("featureEditor.utils._renderCellHandler. object, data, cell: ", object, data, cell);
-
         var length = 0;
         var saveBtn = null;
         var saveBtnCell = null;
@@ -1182,65 +1096,58 @@ require([
         var deleteBtn = null;
         var deleteBtnCell = null;
 
-
-        if(cell.children.length == 0){
-                //uneditable feature
+        try {
+            if(cell.children.length == 0){
+                //uneditable feature (OID?)
                 cell.style.backgroundColor = "#FFFF00";
                 cell.style.color = "#FF0000";
-                //featureEditor.utils.revertLocalRecord();
                 return;
-        }
+            }
 
-        if(object.element.hasChildNodes() && typeof(cell.parentNode.cells) == "undefined"){
-            var child0 = object.element.children[0];
+            if(object.element.hasChildNodes() && typeof(cell.parentNode.cells) == "undefined") {
+                var child0 = object.element.children[0];
+                //set save button disabled state to false
+                length = child0.childNodes.length;
 
-            //set save button disabled state to false
-            length = child0.childNodes.length;
-            saveBtn = child0.childNodes[length - 3].children[0].children[0].children[0];
-            dijit.byId(saveBtn.id).set('disabled',false);
+                saveBtn = child0.childNodes[length - 3].children[0].children[0].children[0];
+                dijit.byId(saveBtn.id).set('disabled',false);
+                saveBtnCell = child0.childNodes[length - 3].children[0].children[0];
+                saveBtnCell.style.backgroundColor = "#52D017";
 
-            saveBtnCell = child0.childNodes[length - 3].children[0].children[0];
-            saveBtnCell.style.backgroundColor = "#52D017";
+                undoBtn = child0.childNodes[length - 2].children[0].children[0].children[0];
+                dijit.byId(undoBtn.id).set('disabled',false);
+                undoBtnCell = child0.childNodes[length - 2].children[0].children[0];
+                undoBtnCell.style.backgroundColor = "#ffff00";
 
-            undoBtn = child0.childNodes[length - 2].children[0].children[0].children[0];
-            dijit.byId(undoBtn.id).set('disabled',false);
-
-            undoBtnCell = child0.childNodes[length - 2].children[0].children[0];
-            undoBtnCell.style.backgroundColor = "#ffff00";
-
-            deleteBtn = child0.childNodes[length - 1].children[0].children[0].children[0];
-            dijit.byId(deleteBtn.id).set('disabled',false);
-
-            deleteBtnCell = child0.childNodes[length - 1].children[0].children[0];
-            deleteBtnCell.style.backgroundColor = "#ff0000";
-
-        }
-        else{
-            //IE 9 hack
-            try{
+                deleteBtn = child0.childNodes[length - 1].children[0].children[0].children[0];
+                dijit.byId(deleteBtn.id).set('disabled',false);
+                deleteBtnCell = child0.childNodes[length - 1].children[0].children[0];
+                deleteBtnCell.style.backgroundColor = "#ff0000";
+            }
+            else{
+                //IE 9 hack
                 length = cell.parentNode.cells.length;
+
                 saveBtn = cell.parentNode.cells[length - 3].children[0].children[0].children[0];
                 dijit.byId(saveBtn.id).set('disabled',false);
-
                 saveBtnCell = cell.parentNode.cells[length - 3].children[0].children[0];
                 saveBtnCell.style.backgroundColor = "#52D017";
 
                 undoBtn = cell.parentNode.cells[length - 2].children[0].children[0].children[0];
                 dijit.byId(undoBtn.id).set('disabled',false);
-
                 undoBtnCell = cell.parentNode.cells[length - 2].children[0].children[0];
                 undoBtnCell.style.backgroundColor = "#ffff00";
 
                 deleteBtn = cell.parentNode.cells[length - 1].children[0].children[0].children[0];
                 dijit.byId(deleteBtn.id).set('disabled',false);
-
                 deleteBtnCell = cell.parentNode.cells[length - 1].children[0].children[0];
                 deleteBtnCell.style.backgroundColor = "#ff0000";
+            }
 
-            }
-            catch(err){
-                console.log("_renderCellHandler error: ", err);
-            }
+        } catch(ex) {
+            console.log("Error in featureEditor.utils._renderCellHandler. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
         }
     }; // featureEditor.utils._renderCellHandler
 
@@ -1267,7 +1174,7 @@ require([
             //uneditable feature
             cell.style.backgroundColor = "#FFFF00";
             cell.style.color = "#FF0000";
-            //featureEditor.utils.revertLocalRecord();
+            //featureEditor.utils.revertCurrentRecord();
             return;
         }
 
