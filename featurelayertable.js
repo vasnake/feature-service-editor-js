@@ -6,17 +6,42 @@
  * Tested, fixed and adopted by Valentin Fedulov <vasnake@gmail.com>
  *
  * @author Andy Gup
- * @version 0.5
+ * @version 0.7.1
  * @type {Object} featureEditor Class.
  * @author vasnake@gmail.com
  */
 var featureEditor = featureEditor || {};
+
+/**
+ * Local ENUMs (Constants)
+ * @type {Object}
+ * @returns {*}
+ */
+featureEditor.localEnum = (function(){
+    var values = {
+        RECORDS_PER_PAGE:       15,
+        HTTP_REQUEST_TIMEOUT:   30000,
+        PREVENT_OBJECTID_EDIT:  true,
+        TYPE:                   "type" /* featureService field type property */,
+        OUTFIELDS:              "*" /* outField property for FeatureLayer and Query */
+    };
+    return values;
+});
+
+featureEditor.pageInfo = {
+    objectIds:      null,
+    totalRecords:   0,
+    totalPages:     0,
+    currentPage:    0,
+    recordsPerPage: featureEditor.localEnum().RECORDS_PER_PAGE
+};
+
 featureEditor.utils = {};
 featureEditor.ui = {};
 featureEditor.grid = null;
+featureEditor.query = null; // esri/tasks/query
 featureEditor.addGrid = null;
 featureEditor.columnNamesArr = [];
-featureEditor.pageInfo = null;
 featureEditor.store = null;
 featureEditor.addStore = null;
 featureEditor.currentRecord = null;
@@ -40,23 +65,6 @@ featureEditor.yField = null; //internal - field string name containing y geometr
  * @type {Array}
  */
 featureEditor.featureEditDetails = [];
-
-/**
- * Local ENUMs (Constants)
- * @type {Object}
- * @returns {*}
- */
-featureEditor.localEnum = (function(){
-    var values = {
-        RECORDS_PER_PAGE:15,
-        HTTP_REQUEST_TIMEOUT:30000,
-        PREVENT_OBJECTID_EDIT:true,
-        TYPE:"type" /* featureService field type property */,
-        OUTFIELDS:"*" /* outField property for FeatureLayer and Query */
-    };
-
-    return values;
-});
 
 require([
     'dojo/_base/declare',
@@ -85,6 +93,89 @@ require([
              Selection,CellSelection,mouseUtil,Keyboard,editor,Memory,on,when,request,query,Deferred,Standby) {
 
     /**
+     * Button 'Load' onClick handler.
+     * Load/reload data from FS layer (feature class) to grid.
+     * @param fcUrl feature server layer url like "http://cgis.allgis.org/arcgis/rest/services/somename/FeatureServer/0"
+     * @param qString sql where clause like "objectid='1'"
+     * @param pageNum page number for load to grid
+     * @param rowsPerPage number of rows in grid
+     */
+    featureEditor.load = function(fcUrl, qString, pageNum, rowsPerPage) {
+        console.log("featureEditor.load. fcUrl, qString, pageNum, rowsPerPage: ", arguments);
+        dojo.byId("grid").style.visibility = "visible";
+
+        if(!featureEditor.loadingIcon)
+            featureEditor.loadingIcon = featureEditor.utils._createStandbyIcon("grid");
+        featureEditor.loadingIcon.show();
+
+        // TODO: destroy grid
+        featureEditor.featureEditDetails = [];
+
+        if(!featureEditor.utils.validateURL(fcUrl)) {
+            this.loadingIcon.hide();
+            alert("Invalid feature layer URL. \n Valid URL looks like 'http://somehostFQDN/arcgis/rest/services/somename/FeatureServer/0'");
+            return;
+        }
+        featureEditor.restEndpoint = fcUrl;
+
+        // TODO: another parameter
+        //featureEditor.outFields = dojo.byId("outfields-string").value;
+        featureEditor.outFields = featureEditor.localEnum().OUTFIELDS;
+        if(featureEditor.outFields == "") featureEditor.outFields = "*";
+
+        // TODO: set pageNum, rowsPerPage
+/*
+featureEditor.pageInfo = {
+    objectIds:      null,
+    totalRecords:   0,
+    totalPages:     0,
+    currentPage:    0,
+    recordsPerPage: featureEditor.localEnum().RECORDS_PER_PAGE
+};
+*/
+
+        //Check for blank queryString
+        this.query = new Query();
+        query.where = qString || "1=1";
+
+        featureEditor.featureLayer = new FeatureLayer(
+            fcUrl,
+            {outFields: [featureEditor.outFields]}
+        );
+
+        var deferred = featureEditor.featureLayer.queryIds(query,
+            function (/* array */ objectIds) {
+                console.log("queryIds. objectIds: ", objectIds);
+                if(objectIds.length > 0) {
+                    featureEditor._fetchRecords(objectIds);
+                } else {
+                    featureEditor.loadingIcon.hide();
+                    alert("No results found.");
+                }
+            },
+            function(err) {
+                featureEditor.loadingIcon.hide();
+                console.log("queryIds: Error: " + err.code + ", " + err.details[0], err);
+                alert("No results found, request failed: " + err.details[0]);
+            }
+        ); // featureLayer.queryIds deferred
+
+        deferred.then(dojo.hitch(this,
+            function() {
+                //Create a simple array of field names that are editable
+                console.debug("featureEditor.featureLayer.fields", featureEditor.featureLayer.fields);
+                var flds = featureEditor.featureLayer.fields;
+                for(var key in flds) {
+                    if(flds[key].editable == true) {
+                        this.featureEditDetails.push(flds[key].name);
+                    }
+                }
+            }
+        )); // featureLayer.queryIds deferred.then
+    }; // featureEditor.load
+
+
+    /**
      * Begin by initializing the library here.
      * <b>IMPORTANT:</b> This app uses a stand-alone FeatureService that is not
      * associated with a map. You can modify this app to use an existing Feature Service
@@ -104,8 +195,7 @@ require([
         featureEditor.loadingIcon.show();
 
         //Attempt a soft reset of grid data without having to recreate from scratch.
-        if(featureEditor.grid != null){
-
+        if(featureEditor.grid != null) {
             featureEditor.grid.store.setData({});
             featureEditor.grid.refresh();
             featureEditor.pageInfo = null;
@@ -123,14 +213,15 @@ require([
             featureEditor.spatialReference = null;
             featureEditor.xField = null;
             featureEditor.yField = null;
-
         }
 
-        if(featureEditor.dgridRowClickListener != null)featureEditor.dgridRowClickListener.remove();
-        if(featureEditor.dgridCellClickListener != null)featureEditor.dgridCellClickListener.remove();
+        if(featureEditor.dgridRowClickListener != null)
+            featureEditor.dgridRowClickListener.remove();
+        if(featureEditor.dgridCellClickListener != null)
+            featureEditor.dgridCellClickListener.remove();
 
         //If the add new feature grid is visible then shut it down
-        if(featureEditor.addGrid != null){
+        if(featureEditor.addGrid != null) {
             featureEditor.addGrid.store.setData({});
             featureEditor.addGrid.refresh();
             featureEditor.addGrid = null;
@@ -151,7 +242,7 @@ require([
         if(featureEditor.outFields == "") featureEditor.outFields = "*";
         if(queryString == "" || useQueryString == false)queryString = "1=1";
 
-        if(typeof(dojo) !== "undefined" && isURLvalid){
+        if(typeof(dojo) !== "undefined" && isURLvalid) {
             featureEditor.restEndpoint = url;
             featureEditor.featureLayer = new FeatureLayer(document.getElementById("fsEndpoint").value, {
                 outFields:[featureEditor.outFields]
@@ -201,7 +292,7 @@ require([
                 }
             }));
 
-        }
+        } // if(typeof(dojo) !== "undefined" && isURLvalid) {
         else{
             alert("Feature Service URL is not valid");
         }
@@ -696,7 +787,8 @@ require([
      * @param url
      * @returns boolean
      */
-    featureEditor.utils.validateURL = function(/* String */ url){
+    featureEditor.utils.validateURL = function(/* String */ url) {
+        console.log("featureEditor.utils.validateURL. url:", arguments);
         return  /^(ftp|http|https):\/\/[^ "]+$/.test(url);
     };
 
@@ -1281,8 +1373,7 @@ require([
      */
     featureEditor.utils._createStandbyIcon = function(/* String */ target) {
         console.log("featureEditor.utils._createStandbyIcon. target: ", target);
-
-        var standbyIcon = new Standby({target : target,color : "grey"});
+        var standbyIcon = new Standby({target : target, color : "grey"});
         document.body.appendChild(standbyIcon.domNode);
         standbyIcon.startup();
         return standbyIcon;
