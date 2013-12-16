@@ -1,5 +1,9 @@
 # feature-service-editor-js - Changelog
 
+## Version 0.7.1 - Dec. 17, 2013
+
+- Fixed Load/Reload bug.
+
 ## Version 0.7 - Dec. 10, 2013
 
 - Grid row acions buttons removed. Since row actions (save, undo, delete) works only for Current Record, we need only three actions buttons.

@@ -105,7 +105,19 @@ require([
     featureEditor.load = function(fcUrl, qString, pageNum, rowsPerPage) {
         console.log("featureEditor.load. fcUrl, qString, pageNum, rowsPerPage: ", arguments);
 
-        // TODO: destroy grid
+        // destroy grid
+        if(featureEditor.dgridRowClickListener != null) featureEditor.dgridRowClickListener.remove();
+        if(featureEditor.dgridCellDblClickListener != null) featureEditor.dgridCellDblClickListener.remove();
+        featureEditor.dgridRowClickListener = null;
+        featureEditor.dgridCellDblClickListener = null;
+
+        if(featureEditor.grid) {
+            featureEditor.grid.revert();
+            featureEditor.grid.destroy();
+            featureEditor.grid = null;
+            dojo.place('<div id="grid" class="grid1"></div>', 'grid-legend-parent', 'before');
+        }
+
         this.featureEditDetails = [];
 
         // check parameters
@@ -1044,14 +1056,7 @@ require([
      * @param fields Array of dgrid field metadata
      */
     featureEditor.utils._createGrid = function(/* Object */ fields) {
-        console.log("featureEditor.utils._createGrid. fields: ", arguments);
-        // TODO: delete grid
-        if(featureEditor.dgridRowClickListener != null) featureEditor.dgridRowClickListener.remove();
-        if(featureEditor.dgridCellDblClickListener != null) featureEditor.dgridCellDblClickListener.remove();
-        featureEditor.dgridRowClickListener = null;
-        featureEditor.dgridCellDblClickListener = null;
-        this.destroyDijit('vsDataGrid');
-
+        console.log("featureEditor.utils._createGrid. fields: ", this.toJson(arguments));
         // create grid
         try {
             featureEditor.store = new Memory({
@@ -1062,11 +1067,11 @@ require([
             // Dojo's dGrid
             var DataGrid = declare([OnDemandGrid, Selection, CellSelection, Keyboard]);
             featureEditor.grid = new DataGrid({
-                id:             'vsDataGrid',
                 store:          featureEditor.store,
                 columns:        fields,
                 selectionMode:  'single'    /*, noDataMessage:'Nothing found.' */
             }, 'grid');
+            featureEditor.grid.startup();
 
             featureEditor.utils._setListeners();
 
@@ -1102,11 +1107,15 @@ require([
                 for (var item in arr) {
                     var attrName = arr[item].toString();
                     var attrVal = entry.attributes[attrName];
+                    //~ console.debug("updateGrid. attr. name, val: ", [attrName, attrVal]);
                     if(attrVal === null) {
                         entryObject[attrName] = attrVal;
                     }
                     else{
                         entryObject[attrName] = attrVal.toString();
+                    }
+                    if(attrName == 'OBJECTID') {
+                        //~ entryObject['id'] = parseInt(attrVal);
                     }
                 }
 
@@ -1119,10 +1128,21 @@ require([
 
                 data.push(entryObject);
             }
-        );
+        ); // end copy data
 
-        featureEditor.grid.store.setData(data);
-        featureEditor.grid.refresh();
+        console.log("featureEditor.utils.updateGrid. finish...");
+        try {
+            featureEditor.store = new Memory({
+                data:       data,
+                idProperty: columnArr[0].field // TODO: OBJECTID probably
+            });
+            featureEditor.grid.set("store", featureEditor.store); // store.setData(data);
+            featureEditor.grid.refresh();
+        } catch(ex) {
+            console.log("Error in featureEditor.utils.updateGrid. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
     }; // featureEditor.utils.updateGrid
 
 

@@ -27,7 +27,8 @@ Query String lets you set the SQL string for returning data. When left blank it 
 
 ## TODO
 
-- Debug Load/Reload/Refresh (Init) function. After second call of Init dgrid.dirty is lost forever.
+- Code need some cleaning and refactoring.
+- storage.idProperty must be not first field from featureSet but field with esriFieldTypeOID type.
 
 ## Main Editor Window
 
