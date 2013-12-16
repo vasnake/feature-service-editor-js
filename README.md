@@ -27,6 +27,7 @@ Query String lets you set the SQL string for returning data. When left blank it 
 
 ## TODO
 
+- Next page/Prev page bug.
 - Code need some cleaning and refactoring.
 - storage.idProperty must be not first field from featureSet but field with esriFieldTypeOID type.
 
