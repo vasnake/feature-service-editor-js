@@ -6,40 +6,11 @@
  * Tested, fixed and adopted by Valentin Fedulov <vasnake@gmail.com>
  *
  * @author Andy Gup
- * @version 0.5
+ * @version 0.7.1
  * @type {Object} featureEditor Class.
  * @author vasnake@gmail.com
  */
 var featureEditor = featureEditor || {};
-featureEditor.utils = {};
-featureEditor.ui = {};
-featureEditor.grid = null;
-featureEditor.addGrid = null;
-featureEditor.columnNamesArr = [];
-featureEditor.pageInfo = null;
-featureEditor.store = null;
-featureEditor.addStore = null;
-featureEditor.currentRecord = null;
-featureEditor.currentAddRecord = null;
-featureEditor.currentAddRow = null;
-featureEditor.featureLayer = null;
-featureEditor.masterRecordArr = [];
-featureEditor.restEndpoint = null;
-featureEditor.dgridRowClickListener = null;
-featureEditor.dgridCellClickListener = null;
-featureEditor.dgridAddCellClickListener = null;
-featureEditor.outFields = null;
-featureEditor.loadingIcon = null;
-featureEditor.spatialReference = null;
-featureEditor.xField = null; //internal - field string name containing x geometry value
-featureEditor.yField = null; //internal - field string name containing y geometry value;
-
-/**
- * An array of the editable fields within the featureLayer.
- * By default, fields with the property editable = false are automatically excluded.
- * @type {Array}
- */
-featureEditor.featureEditDetails = [];
 
 /**
  * Local ENUMs (Constants)
@@ -48,15 +19,54 @@ featureEditor.featureEditDetails = [];
  */
 featureEditor.localEnum = (function(){
     var values = {
-        RECORDS_PER_PAGE:15,
-        HTTP_REQUEST_TIMEOUT:30000,
-        PREVENT_OBJECTID_EDIT:true,
-        TYPE:"type" /* featureService field type property */,
-        OUTFIELDS:"*" /* outField property for FeatureLayer and Query */
+        RECORDS_PER_PAGE:       15,
+        HTTP_REQUEST_TIMEOUT:   30000,
+        PREVENT_OBJECTID_EDIT:  true,
+        TYPE:                   "type" /* featureService field type property */,
+        OUTFIELDS:              "*" /* outField property for FeatureLayer and Query */
     };
-
     return values;
 });
+
+featureEditor.pageInfo = {
+    objectIds:      null,
+    totalRecords:   0,
+    totalPages:     0,
+    currentPage:    0,
+    recordsPerPage: featureEditor.localEnum().RECORDS_PER_PAGE
+};
+
+featureEditor.utils = {};
+featureEditor.ui = {};
+featureEditor.grid = null;
+featureEditor.query = null; // esri/tasks/query
+featureEditor.addGrid = null;
+featureEditor.columnNamesArr = [];
+featureEditor.store = null;
+featureEditor.addStore = null;
+featureEditor.currentRecord = null;
+featureEditor.currentAddRecord = null;
+featureEditor.currentAddRow = null;
+featureEditor.featureLayer = null;
+featureEditor.masterRecordArr = []; // data fetched from feature layer
+featureEditor.restEndpoint = null;
+featureEditor.dgridRowClickListener = null;
+featureEditor.dgridCellDblClickListener = null;
+featureEditor.dgridAddCellClickListener = null;
+featureEditor.outFields = null;
+featureEditor.loadingIcon = null;
+featureEditor.spatialReference = null;
+featureEditor.xField = null; //internal - field string name containing x geometry value
+featureEditor.yField = null; //internal - field string name containing y geometry value;
+featureEditor.rowOnClick = null; // dGrid row onClick external callback
+featureEditor.cellOnDblClick = null; // dGrid cell onDblClick external callback
+
+/**
+ * An array of the editable fields within the featureLayer.
+ * By default, fields with the property editable = false are automatically excluded.
+ * @type {Array}
+ */
+featureEditor.featureEditDetails = [];
 
 require([
     'dojo/_base/declare',
@@ -84,29 +94,98 @@ require([
     function(declare,FeatureLayer,Query,Button,ComboBox,number,OnDemandGrid,ColumnHider,
              Selection,CellSelection,mouseUtil,Keyboard,editor,Memory,on,when,request,query,Deferred,Standby) {
 
-        //Set up the URL pulldown list so that you can manage more than one Feature Service.
-        var urlStore = new Memory({
-            data: [
-                {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
-                    id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0"},
-                {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0",
-                    id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0"}
-            ]
-        });
+    /**
+     * Button 'Load' onClick handler.
+     * Load/reload data from FS layer (feature class) to grid.
+     * @param fcUrl feature server layer url like "http://cgis.allgis.org/arcgis/rest/services/somename/FeatureServer/0"
+     * @param qString sql where clause like "objectid='1'"
+     * @param pageNum page number for load to grid
+     * @param rowsPerPage number of rows in grid
+     */
+    featureEditor.load = function(fcUrl, qString, pageNum, rowsPerPage) {
+        console.log("featureEditor.load. fcUrl, qString, pageNum, rowsPerPage: ", arguments);
 
-        //http://dojotoolkit.org/reference-guide/1.9/dijit/form/ComboBox.html
-        //NOTE: may not work properly with IE8!
-        var comboBox = new ComboBox({
-            id: "fsEndpoint",
-            name: "url",
-            value: "http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
-            store: urlStore,
-            searchAttr: "name"
-        }, "fsEndpoint");
+        // destroy grid
+        if(featureEditor.dgridRowClickListener != null) featureEditor.dgridRowClickListener.remove();
+        if(featureEditor.dgridCellDblClickListener != null) featureEditor.dgridCellDblClickListener.remove();
+        featureEditor.dgridRowClickListener = null;
+        featureEditor.dgridCellDblClickListener = null;
 
-        comboBox.set('style',{width: '350px'});
+        if(featureEditor.grid) {
+            featureEditor.grid.revert();
+            featureEditor.grid.destroy();
+            featureEditor.grid = null;
+            dojo.place('<div id="grid" class="grid1"></div>', 'grid-legend-parent', 'before');
+        }
+
+        this.featureEditDetails = [];
+
+        // check parameters
+        fcUrl = fcUrl || this.restEndpoint;
+        if(!featureEditor.utils.validateURL(fcUrl)) {
+            alert("Invalid feature layer URL. \n Valid URL looks like 'http://somehostFQDN/arcgis/rest/services/somename/FeatureServer/0'");
+            return;
+        }
+        featureEditor.restEndpoint = fcUrl;
+
+        // TODO: another parameter
+        //featureEditor.outFields = dojo.byId("outfields-string").value;
+        featureEditor.outFields = featureEditor.localEnum().OUTFIELDS;
+        if(featureEditor.outFields == "") featureEditor.outFields = "*";
+
+        pageNum = pageNum || this.pageInfo.currentPage;
+        if(pageNum <= 0) pageNum = 1;
+        rowsPerPage = rowsPerPage || this.pageInfo.recordsPerPage;
+        this.pageInfo.currentPage = pageNum;
+        this.pageInfo.recordsPerPage = rowsPerPage;
+
+        dojo.byId("grid").style.visibility = "visible";
+        if(!featureEditor.loadingIcon)
+            featureEditor.loadingIcon = featureEditor.utils._createStandbyIcon("grid");
+        featureEditor.loadingIcon.show();
+
+        this.query = new Query();
+        query.where = qString || "1=1";
+
+        // ask for featureLayer IDs
+        featureEditor.featureLayer = new FeatureLayer(
+            fcUrl,
+            {outFields: [featureEditor.outFields]}
+        );
+
+        var deferred = featureEditor.featureLayer.queryIds(query,
+            function (/* array */ objectIds) {
+                console.log("queryIds. objectIds: ", objectIds);
+                if(objectIds.length > 0) {
+                    featureEditor._fetchRecords(objectIds);
+                } else {
+                    alert("No results found.");
+                }
+            },
+            function(err) {
+                console.log("queryIds: Error: " + err.code + ", " + err.details[0], err);
+                alert("No results found, request failed: " + err.details[0]);
+            }
+        ); // featureLayer.queryIds deferred
+
+        deferred.then(dojo.hitch(this,
+            function() {
+                featureEditor.loadingIcon.hide();
+                //Create a simple array of field names that are editable
+                console.debug("featureEditor.featureLayer.fields", featureEditor.featureLayer.fields);
+                var flds = featureEditor.featureLayer.fields;
+                for(var key in flds) {
+                    if(flds[key].editable == true) {
+                        this.featureEditDetails.push(flds[key].name);
+                    }
+                }
+            }
+        )); // featureLayer.queryIds deferred.then
+    }; // featureEditor.load
+
 
     /**
+     * DEPRECATED
      * Begin by initializing the library here.
      * <b>IMPORTANT:</b> This app uses a stand-alone FeatureService that is not
      * associated with a map. You can modify this app to use an existing Feature Service
@@ -120,14 +199,25 @@ require([
         //  var queryString = document.getElementById("query-string").value;
         //  featureEditor.init(queryString);
 
+        // redirect to new load method
+        try {
+            var queryString = document.getElementById("query-string").value;
+            var url = document.getElementById("fsEndpoint").value;
+            this.load(url, queryString);
+        } catch(ex) {
+            console.log("Error in featureEditor.init. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
+        return;
+
         dojo.byId("grid").style.visibility = "visible";
 
         featureEditor.loadingIcon = featureEditor.utils._createStandbyIcon("grid");
         featureEditor.loadingIcon.show();
 
         //Attempt a soft reset of grid data without having to recreate from scratch.
-        if(featureEditor.grid != null){
-
+        if(featureEditor.grid != null) {
             featureEditor.grid.store.setData({});
             featureEditor.grid.refresh();
             featureEditor.pageInfo = null;
@@ -145,14 +235,15 @@ require([
             featureEditor.spatialReference = null;
             featureEditor.xField = null;
             featureEditor.yField = null;
-
         }
 
-        if(featureEditor.dgridRowClickListener != null)featureEditor.dgridRowClickListener.remove();
-        if(featureEditor.dgridCellClickListener != null)featureEditor.dgridCellClickListener.remove();
+        if(featureEditor.dgridRowClickListener != null)
+            featureEditor.dgridRowClickListener.remove();
+        if(featureEditor.dgridCellDblClickListener != null)
+            featureEditor.dgridCellDblClickListener.remove();
 
         //If the add new feature grid is visible then shut it down
-        if(featureEditor.addGrid != null){
+        if(featureEditor.addGrid != null) {
             featureEditor.addGrid.store.setData({});
             featureEditor.addGrid.refresh();
             featureEditor.addGrid = null;
@@ -160,8 +251,6 @@ require([
             featureEditor.ui.handleAddRemoveEditGrid(false);
         }
 
-        var queryString = document.getElementById("query-string").value;
-        var url = document.getElementById("fsEndpoint").value;
         var isURLvalid = featureEditor.utils.validateURL(url);
 
         //Currently the outfield property is locked to return all fields.
@@ -173,7 +262,7 @@ require([
         if(featureEditor.outFields == "") featureEditor.outFields = "*";
         if(queryString == "" || useQueryString == false)queryString = "1=1";
 
-        if(typeof(dojo) !== "undefined" && isURLvalid){
+        if(typeof(dojo) !== "undefined" && isURLvalid) {
             featureEditor.restEndpoint = url;
             featureEditor.featureLayer = new FeatureLayer(document.getElementById("fsEndpoint").value, {
                 outFields:[featureEditor.outFields]
@@ -223,7 +312,7 @@ require([
                 }
             }));
 
-        }
+        } // if(typeof(dojo) !== "undefined" && isURLvalid) {
         else{
             alert("Feature Service URL is not valid");
         }
@@ -236,121 +325,96 @@ require([
      * @private
      */
     featureEditor._fetchRecords = function(objectIds) {
-        console.log("featureEditor._fetchRecords. objectIds: ", objectIds);
+        console.log("featureEditor._fetchRecords. objectIds: ", arguments);
         if (objectIds.length > 0) {
             featureEditor._updatePageInformation(objectIds);
-            featureEditor.queryRecordsByPage(1);
+            featureEditor.queryRecordsByPage(this.pageInfo.currentPage);
         } else {
-            if(featureEditor.grid != null){
-                featureEditor.grid.setStore(null);
-                featureEditor.grid.showMessage("No matching records");
-            }
-
-            featureEditor.loadingIcon.hide();
             alert("No record found.");
         }
     }; // featureEditor._fetchRecords
 
 
-    featureEditor._updatePageInformation = function(objectIds, page) {
-        console.log("featureEditor._updatePageInformation. objectIds, page: ", objectIds, page);
-
-        featureEditor.pageInfo = {
-            objectIds     :objectIds,
-            totalRecords  :objectIds.length,
-            totalPages    :Math.ceil(objectIds.length / featureEditor.localEnum().RECORDS_PER_PAGE),
-            currentPage   :page || 0,
-            recordsPerPage:featureEditor.localEnum().RECORDS_PER_PAGE
-        };
-
-        dojo.byId("pageInfo").innerHTML = featureEditor.pageInfo.currentPage + "/" + featureEditor.pageInfo.totalPages;
-        dojo.byId("recordsInfo").innerHTML = featureEditor.pageInfo.totalRecords;
-
-        if (featureEditor.pageInfo.currentPage > featureEditor.pageInfo.totalPages) {
-            featureEditor.queryRecordsByPage(pageInfo.currentPage - 1);
+    featureEditor._updatePageInformation = function(objectIds) {
+        console.log("featureEditor._updatePageInformation. objectIds, page: ", arguments);
+        var pi = this.pageInfo;
+        pi.objectIds = objectIds;
+        pi.totalRecords = objectIds.length;
+        pi.totalPages = Math.ceil(pi.totalRecords / pi.recordsPerPage);
+        pi.currentPage = pi.currentPage || 1;
+        if(pi.currentPage >= pi.totalPages) pi.currentPage = pi.totalPages;
+        try { // update html controls
+            dojo.byId("pageInfo").innerHTML = pi.currentPage + "/" + pi.totalPages;
+            dojo.byId("recordsInfo").innerHTML = pi.totalRecords;
+        } catch(ex) {
+            console.log("Error in _updatePageInformation. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
         }
     }; // featureEditor._updatePageInformation
 
 
     /**
-     * Query the remote feature service page page number
+     * Query the remote feature service page data
      * @param pageNumber
      */
     featureEditor.queryRecordsByPage = function(/* number */ pageNumber) {
-        console.log("featureEditor.queryRecordsByPage. pageNumber: ", pageNumber);
-
+        console.log("featureEditor.queryRecordsByPage. pageNumber: ", arguments);
+        var pi = this.pageInfo;
         // check if the page number is valid
-        if (pageNumber < 1 || pageNumber > featureEditor.pageInfo.totalPages) {
+        if (pageNumber < 1 || pageNumber > pi.totalPages) {
             console.log("queryRecordsbyPage: page number invalid.");
             return;
         }
+        var begin = pi.recordsPerPage * (pageNumber - 1);
+        var end = begin + pi.recordsPerPage;
 
         featureEditor.loadingIcon.show();
 
-        var begin = featureEditor.pageInfo.recordsPerPage * (pageNumber - 1);
-        var end = begin + featureEditor.pageInfo.recordsPerPage;
-
         // create the query
         var query = new esri.tasks.Query();
-        query.objectIds = featureEditor.pageInfo.objectIds.slice(begin, end);
-        query.outFields = featureEditor.outFields;
+        query.objectIds = pi.objectIds.slice(begin, end);
+        query.outFields = this.outFields;
 
         // Query for the records with the given object IDs and populate the grid
-        featureEditor.featureLayer.queryFeatures(query, function (featureSet) {
+        this.featureLayer.queryFeatures(query,
+            function (featureSet) {
+                console.log("featureLayer.queryFeatures. featureSet: ", arguments);
+                featureEditor.spatialReference = featureSet.spatialReference;
 
-            //Verify that feature service only contains point data
-            if(featureSet != null && featureSet.features.length > 0 && featureSet.geometryType != "esriGeometryPoint"){
-                //featureEditor.loadingIcon.hide();
-                console.log("Can only load point based feature services, sorry.");
-                //return;
-            }
+                // grid fields
+                var ind = 0; // fields list index
+                var arr = []; // field names
+                var columnArr = []; // dgrid fields list
 
-            featureEditor.spatialReference = featureSet.spatialReference;
-
-            var i = 0;
-            var arr = [];
-            var columnArr = [];
-            var length = featureEditor.featureEditDetails.length;
-
-            for (var key in featureSet.features[0].attributes) {
-                console.log(key);
-                arr[i] = key;
-
-                //See if there are any editable features.
-                var editTest = -1;
-                if(length > 0) {
-                    editTest = featureEditor.featureEditDetails.indexOf(key);
-                }
-
-                //Item is editable if != -1
-                if(editTest != -1) {
-                    columnArr[i] = editor({
-                        label:key.toString(),
-                        field:key.toString(),
-                        hidden: false,
-                        editor:"text",
-                        editOn:"dblclick"
-                    });
-                } else {
-                    columnArr[i] = {
-                        label:key.toString(),
-                        field:key.toString(),
-                        hidden:false
-                    };
-                }
-                i++;
-            } // for each FC attribute
-
-            featureEditor.columnNamesArr = columnArr;
-
-            if(featureEditor.grid == null){
-                featureEditor.utils.createGrid(columnArr);
-                featureEditor.utils.updateGrid(featureSet, pageNumber, arr);
-            }
-            else{
-                featureEditor.utils.updateGrid(featureSet, pageNumber, arr);
-            }
-        });
+                for (var key in featureSet.features[0].attributes) {
+                    //console.log(key); // field name
+                    arr[ind] = key;
+                    //See if there are any editable features.
+                    var editable = featureEditor.featureEditDetails.indexOf(key);
+                    if(editable >= 0) {
+                        columnArr[ind] = editor({ // dgrid/editor
+                            label:  key.toString(), // TODO: featureSet.features[0].attributes[key].alias
+                            field:  key.toString(),
+                            hidden: false,
+                            editor: "text",
+                            editOn: "dblclick"
+                        });
+                    } else {
+                        columnArr[ind] = {
+                            label:  key.toString(),
+                            field:  key.toString(),
+                            hidden: false
+                        };
+                    }
+                    ind++;
+                } // for each FC attribute
+                featureEditor.columnNamesArr = columnArr;
+                // fill dGrid
+                featureEditor.utils.updateGrid(featureSet, pageNumber, arr, columnArr);
+                featureEditor.loadingIcon.hide();
+            } // queryFeatures callback
+        ); // this.featureLayer.queryFeatures
     }; // featureEditor.queryRecordsByPage
 
     /**
@@ -718,7 +782,8 @@ require([
      * @param url
      * @returns boolean
      */
-    featureEditor.utils.validateURL = function(/* String */ url){
+    featureEditor.utils.validateURL = function(/* String */ url) {
+        console.log("featureEditor.utils.validateURL. url:", arguments);
         return  /^(ftp|http|https):\/\/[^ "]+$/.test(url);
     };
 
@@ -741,6 +806,25 @@ require([
     //    this.log("mpvlib.fromJson: " + str);
         return dojox.json.ref.fromJson(str);
     }; // featureEditor.utils.fromJson
+
+
+    featureEditor.utils.destroyDijit = function(dijitID) {
+        console.log("featureEditor.utils.destroyDijit. dijitID: ", arguments);
+        try {
+            var thisNode = dijit.byId(dijitID);
+            if(thisNode) {
+                // console.debug('destroyRecursive: ', thisNode);
+                thisNode.destroyRecursive(false); // not preserve DOM
+                dojo.destroy(thisNode);
+            } else {
+                console.debug('featureEditor.utils.destroyDijit. no such ID ' + dijitID);
+            }
+        } catch(ex) {
+            console.log("Error in featureEditor.utils.destroyDijit. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
+    }; // featureEditor.utils.destroyDijit
 
 
     /**
@@ -932,42 +1016,6 @@ require([
 
 
     /**
-     * Create the data grid
-     * @param object ArcGIS Feature
-     */
-    featureEditor.utils.createGrid = function(/* Object */object) {
-        console.log("featureEditor.utils.createGrid. object: ", object);
-
-        var complete = true;
-
-        try{
-            var dataIDProperty = object[0].field;   //DEFAULT...Could be problematic depending on browser!
-            featureEditor.store = new Memory({
-                data:[],
-                idProperty:dataIDProperty
-            });
-
-            var CustomGrid = declare([OnDemandGrid, Selection, CellSelection, Keyboard]);
-
-            // Dojo's dGrid
-            featureEditor.grid = new CustomGrid({
-                store:          featureEditor.store,
-                columns:        object,
-                selectionMode:  'single'    /*, noDataMessage:'Nothing found.' */
-            }, 'grid');
-
-            //featureEditor.utils._setListeners(); // call in updateGrid
-        }
-        catch(err){
-            complete = false;
-            console.log("createGrid error: ", err);
-        }
-
-        return complete;
-    }; // featureEditor.utils.createGrid
-
-
-    /**
      * A temporary grid that is created to specifically handle new entries.
      * @param object An object containing the columns for the custom OnDemandGrid
      */
@@ -1004,55 +1052,97 @@ require([
 
 
     /**
-     *
-     * @param arr Array of field names, like ["OBJECTID", "RECID", "LABEL", "DESCR", "NOTE"]
+     * Create the data grid
+     * @param fields Array of dgrid field metadata
      */
-    featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr) {
-        console.log("featureEditor.utils.updateGrid. featureSet, pageNumber, arr: ", featureSet, pageNumber, arr);
+    featureEditor.utils._createGrid = function(/* Object */ fields) {
+        console.log("featureEditor.utils._createGrid. fields: ", this.toJson(arguments));
+        // create grid
+        try {
+            featureEditor.store = new Memory({
+                data:       [],
+                idProperty: fields[0].field // OBJECTID probably
+            });
 
+            // Dojo's dGrid
+            var DataGrid = declare([OnDemandGrid, Selection, CellSelection, Keyboard]);
+            featureEditor.grid = new DataGrid({
+                store:          featureEditor.store,
+                columns:        fields,
+                selectionMode:  'single'    /*, noDataMessage:'Nothing found.' */
+            }, 'grid');
+            featureEditor.grid.startup();
+
+            featureEditor.utils._setListeners();
+
+            featureEditor.utils.createGridLegend(featureEditor.grid);
+            dojo.byId("grid-legend-parent").style.visibility = "visible";
+            dojo.byId("grid-legend-parent").style.position = "relative";
+
+            featureEditor.featureLayer.isEditable() == true ?
+                featureEditor.ui.handleAddRecord(true) :
+                featureEditor.ui.handleAddRecord(false);
+        } catch(err) {
+            console.log("_createGrid error: ", err);
+        }
+    }; // featureEditor.utils._createGrid
+
+
+    /**
+     * Create grid and update cells
+     * featureEditor.utils.updateGrid(featureSet, pageNumber, arr, columnArr);
+     * @param arr Array of field names, like ["OBJECTID", "RECID", "LABEL", "DESCR", "NOTE"]
+     * @param columnArr Array of dgrid field metadata
+     */
+    featureEditor.utils.updateGrid = function(featureSet, pageNumber, /* Array */ arr, columnArr) {
+        console.log("featureEditor.utils.updateGrid. featureSet, pageNumber, arr, columnArr: ", arguments);
+        this._createGrid(columnArr);
         var data = [];
-        featureEditor.utils._setListeners();
+        featureEditor.masterRecordArr = [];
 
-        dojo.forEach(featureSet.features, function (entry, ind) {
-            var entryObject = {};
-            for (var item in arr) {
-                var attrName = arr[item].toString();
-                var attrVal = entry.attributes[attrName];
-                if(attrVal === null) {
-                    entryObject[attrName] = attrVal;
+        // copy data to arrays
+        dojo.forEach(featureSet.features,
+            function (entry, ind) {
+                var entryObject = {};
+                for (var item in arr) {
+                    var attrName = arr[item].toString();
+                    var attrVal = entry.attributes[attrName];
+                    //~ console.debug("updateGrid. attr. name, val: ", [attrName, attrVal]);
+                    if(attrVal === null) {
+                        entryObject[attrName] = attrVal;
+                    }
+                    else{
+                        entryObject[attrName] = attrVal.toString();
+                    }
+                    if(attrName == 'OBJECTID') {
+                        //~ entryObject['id'] = parseInt(attrVal);
+                    }
                 }
-                else{
-                    entryObject[attrName] = attrVal.toString();
-                }
+
+                featureEditor.masterRecordArr[ind] = {
+                    geometry:       entry.geometry,
+                    infoTemplate:   entry.infoTemplate,
+                    symbol:         entry.symbol,
+                    attributes:     entry.attributes
+                };
+
+                data.push(entryObject);
             }
+        ); // end copy data
 
-            featureEditor.masterRecordArr[ind] = {
-                geometry:       entry.geometry,
-                infoTemplate:   entry.infoTemplate,
-                symbol:         entry.symbol,
-                attributes:     entry.attributes
-            };
-
-            data.push(entryObject);
-        });
-
-        featureEditor.grid.store.setData(data);
-        featureEditor.grid.refresh();
-
-        featureEditor.utils.createGridLegend(featureEditor.grid);
-        dojo.byId("grid-legend-parent").style.visibility = "visible";
-        dojo.byId("grid-legend-parent").style.position = "relative";
-
-        //Call the esri.layers.FeatureLayer.isEditable() method
-        featureEditor.featureLayer.isEditable() == true ?
-            featureEditor.ui.handleAddRecord(true) :
-            featureEditor.ui.handleAddRecord(false);
-
-        // update application state
-        featureEditor.pageInfo.currentPage = pageNumber;
-        dojo.byId("pageInfo").innerHTML = featureEditor.pageInfo.currentPage + "/" + featureEditor.pageInfo.totalPages;
-
-        featureEditor.loadingIcon.hide();
+        console.log("featureEditor.utils.updateGrid. finish...");
+        try {
+            featureEditor.store = new Memory({
+                data:       data,
+                idProperty: columnArr[0].field // TODO: OBJECTID probably
+            });
+            featureEditor.grid.set("store", featureEditor.store); // store.setData(data);
+            featureEditor.grid.refresh();
+        } catch(ex) {
+            console.log("Error in featureEditor.utils.updateGrid. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
     }; // featureEditor.utils.updateGrid
 
 
@@ -1079,13 +1169,15 @@ require([
 
     /**
      * For handling edit click events. Be aware of differences between Chrome, Firefox and IE.
+     * call example: featureEditor.utils._renderCellHandler(stuff.row, null, stuff.element);
      * @param object - usually the row object
      * @param data
      * @param cell - the cell that was clicked
      * @private
      */
     featureEditor.utils._renderCellHandler = function(object, data, cell) {
-        console.log("featureEditor.utils._renderCellHandler. object, data, cell: ", object, data, cell);
+        console.log("featureEditor.utils._renderCellHandler. object, data, cell: ", arguments);
+
         var length = 0;
         var saveBtn = null;
         var saveBtnCell = null;
@@ -1095,7 +1187,7 @@ require([
         var deleteBtnCell = null;
 
         try {
-            if(cell.children.length == 0){
+            if(cell.children.length == 0) { // TODO: I don't want OBJECTID field be yellow forever
                 //uneditable feature (OID?)
                 cell.style.backgroundColor = "#FFFF00";
                 cell.style.color = "#FF0000";
@@ -1232,41 +1324,38 @@ require([
 
     /**
      * Internal method for setting up listeners.
+     * Called from _createGrid
      * @private
      */
     featureEditor.utils._setListeners = function() {
-        console.log("featureEditor.utils._setListeners");
+        console.log("featureEditor.utils._setListeners", arguments);
 
         if(featureEditor.dgridRowClickListener != null) featureEditor.dgridRowClickListener.remove();
-        if(featureEditor.dgridCellClickListener != null) featureEditor.dgridCellClickListener.remove();
-
         featureEditor.dgridRowClickListener = featureEditor.grid.on(".dgrid-row:click",
-            function(event) {
-                console.log("featureEditor.grid.on.dgrid-row:click. event: ", event);
+            function(event) { // single click, set currentRecord
+                console.log("featureEditor.grid.on.dgrid-row:click event: ", arguments);
                 var stuff = featureEditor.grid.row(event);
-                console.log("set featureEditor.currentRecord = row = stuff.data. stuff: ", stuff);
+                console.debug("set featureEditor.currentRecord = stuff.data. stuff: ", stuff);
                 featureEditor.currentRecord = stuff.data;
+                // row onClick external callback
+                if(featureEditor.rowOnClick) featureEditor.rowOnClick.apply(this, arguments);
             }
         );
 
-        featureEditor.dgridCellClickListener = featureEditor.grid.on(".dgrid-cell:dblclick",
+        if(featureEditor.dgridCellDblClickListener != null) featureEditor.dgridCellDblClickListener.remove();
+        featureEditor.dgridCellDblClickListener = featureEditor.grid.on(".dgrid-cell:dblclick",
             function(event) {
-                console.log("featureEditor.grid.on.dgrid-cell:dblclick. event: ", event);
+                console.log("featureEditor.grid.on.dgrid-cell:dblclick. event: ", arguments);
                 var stuff = featureEditor.grid.cell(event);
-                console.log("cell: ", stuff);
-                var undo =  typeof (stuff.column.undo);
-                var save =  typeof (stuff.column.save);
-                //Check for double clicks on the Save and Undo buttons
-                if(typeof(stuff.column) !== "undefined" && ( save == "undefined" && undo == "undefined")) {
-                    console.log("cell is not undo, nor save. html: ", stuff.element.innerHTML);
+                console.debug("cell: ", stuff);
+                if(typeof(stuff.column) !== "undefined") {
+                    //~ console.debug("cell html: ", stuff.element.innerHTML);
                     featureEditor.utils._renderCellHandler(stuff.row, null, stuff.element);
+                    // cell onDblClick external callback
+                    if(featureEditor.cellOnDblClick) featureEditor.cellOnDblClick.apply(this, arguments);
                 }
             }
         );
-//            controller.grid.on(mouseUtil.enterRow, function(event){
-//                var row = controller.grid.row(event);
-//                console.log("mouseover " + row);
-//            });
     }; // featureEditor.utils._setListeners
 
 
@@ -1303,8 +1392,7 @@ require([
      */
     featureEditor.utils._createStandbyIcon = function(/* String */ target) {
         console.log("featureEditor.utils._createStandbyIcon. target: ", target);
-
-        var standbyIcon = new Standby({target : target,color : "grey"});
+        var standbyIcon = new Standby({target : target, color : "grey"});
         document.body.appendChild(standbyIcon.domNode);
         standbyIcon.startup();
         return standbyIcon;
