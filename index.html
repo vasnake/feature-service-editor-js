@@ -47,7 +47,15 @@
                         rowsPerPage =   featureEditor.pageInfo.recordsPerPage;
                     featureEditor.load(fsUrl, qString, pageNum, rowsPerPage);
                 });
-            }
+            };
+            function loadPrevPage() {
+                featureEditor.pageInfo.currentPage--;
+                featureEditor.load();
+            };
+            function loadNextPage() {
+                featureEditor.pageInfo.currentPage++;
+                featureEditor.load();
+            };
             </script>
             <button id="load-btn" onclick="loadPage()">Load</button>
         </div>
@@ -60,14 +68,14 @@
         0
       </span>
     |
-    <button dojoType="dijit.form.Button" onclick="featureEditor.queryRecordsByPage(featureEditor.pageInfo.currentPage - 1);">
+    <button dojoType="dijit.form.Button" onclick="loadPrevPage();">
         Prev Page
     </button>
 
       <span id="pageInfo">
       </span>
 
-    <button dojoType="dijit.form.Button" onclick="featureEditor.queryRecordsByPage(featureEditor.pageInfo.currentPage + 1);">
+    <button dojoType="dijit.form.Button" onclick="loadNextPage();">
         Next Page
     </button>
     |

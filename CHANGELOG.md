@@ -1,5 +1,9 @@
 # feature-service-editor-js - Changelog
 
+## Version 0.7.2 - Dec. 17, 2013
+
+- Fixed Next/Prev page bug.
+
 ## Version 0.7.1 - Dec. 17, 2013
 
 - Fixed Load/Reload bug.

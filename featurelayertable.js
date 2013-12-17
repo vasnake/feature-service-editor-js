@@ -6,7 +6,7 @@
  * Tested, fixed and adopted by Valentin Fedulov <vasnake@gmail.com>
  *
  * @author Andy Gup
- * @version 0.7.1
+ * @version 0.7.2
  * @type {Object} featureEditor Class.
  * @author vasnake@gmail.com
  */
@@ -91,8 +91,8 @@ require([
     "dojox/widget/Standby",
     "dojo/domReady!",
     "dojox/json/ref"],
-    function(declare,FeatureLayer,Query,Button,ComboBox,number,OnDemandGrid,ColumnHider,
-             Selection,CellSelection,mouseUtil,Keyboard,editor,Memory,on,when,request,query,Deferred,Standby) {
+    function(declare, FeatureLayer, Query, Button, ComboBox, number, OnDemandGrid, ColumnHider,
+        Selection, CellSelection, mouseUtil, Keyboard, editor, Memory, on, when, request, query, Deferred, Standby) {
 
     /**
      * Button 'Load' onClick handler.
@@ -112,6 +112,7 @@ require([
         featureEditor.dgridCellDblClickListener = null;
 
         if(featureEditor.grid) {
+            featureEditor.loadingIcon.destroy();
             featureEditor.grid.revert();
             featureEditor.grid.destroy();
             featureEditor.grid = null;
@@ -140,8 +141,7 @@ require([
         this.pageInfo.recordsPerPage = rowsPerPage;
 
         dojo.byId("grid").style.visibility = "visible";
-        if(!featureEditor.loadingIcon)
-            featureEditor.loadingIcon = featureEditor.utils._createStandbyIcon("grid");
+        featureEditor.loadingIcon = featureEditor.utils._createStandbyIcon("grid");
         featureEditor.loadingIcon.show();
 
         this.query = new Query();
@@ -194,10 +194,6 @@ require([
      */
     featureEditor.init = function(/* boolean */ useQueryString) {
         console.log("featureEditor.init. useQueryString: ", useQueryString);
-        // TODO: bug: after reload edited page dgrid.dirty is lost forever
-        // TODO: enhancement: invoke init with query string, like
-        //  var queryString = document.getElementById("query-string").value;
-        //  featureEditor.init(queryString);
 
         // redirect to new load method
         try {
@@ -417,7 +413,9 @@ require([
         ); // this.featureLayer.queryFeatures
     }; // featureEditor.queryRecordsByPage
 
+
     /**
+     * DEPRECATED
      * Adds a new record to the remote ArcGIS database.
      * IMPORTANT: this method currently only checks to see if there is a field
      * that contains a lower-case 'x' and 'y' which indicates a point-based feature service.
@@ -600,6 +598,7 @@ require([
 
 
     /**
+     * DEPRECATED
      * Used to insert a new record/feature into the remote feature service.
      * @param graphic [Graphic]
      * @param token String
@@ -808,25 +807,6 @@ require([
     }; // featureEditor.utils.fromJson
 
 
-    featureEditor.utils.destroyDijit = function(dijitID) {
-        console.log("featureEditor.utils.destroyDijit. dijitID: ", arguments);
-        try {
-            var thisNode = dijit.byId(dijitID);
-            if(thisNode) {
-                // console.debug('destroyRecursive: ', thisNode);
-                thisNode.destroyRecursive(false); // not preserve DOM
-                dojo.destroy(thisNode);
-            } else {
-                console.debug('featureEditor.utils.destroyDijit. no such ID ' + dijitID);
-            }
-        } catch(ex) {
-            console.log("Error in featureEditor.utils.destroyDijit. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
-            console.debug('error stack: ' + ex.stack);
-            window.lastex = ex;
-        }
-    }; // featureEditor.utils.destroyDijit
-
-
     /**
      * DEPRECATED
      * Button 'Add record' onClick handler. Without graphic.geometry this functionality is preposterous.
@@ -943,6 +923,7 @@ require([
 
 
     /**
+     * DEPRECATED
      * Reverts a single local record update in the temporary addGrid only.
      * Does not push the change to the server.
      */
@@ -1001,10 +982,10 @@ require([
      * @param grid
      */
     featureEditor.utils.createGridLegend = function(/* Grid */ grid) {
-        console.log("featureEditor.utils.createGridLegend. grid: ", grid);
-
+        console.log("featureEditor.utils.createGridLegend. grid: ", arguments);
+        // TODO: checkboxes all checked after data page load
         var htmlString = "";
-        dojo.forEach(grid.columns, function(entry, i){
+        dojo.forEach(grid.columns, function(entry, i) {
             if(typeof(entry.label) !== "undefined" ){
                 htmlString +=  "<input type='checkbox' onclick='featureEditor.utils.addRemoveColumns(" + i +")' id='checkbox" +
                         i + "' checked='yes' value='"+ i +"'>" + entry.label  + "<br/>";
@@ -1016,6 +997,7 @@ require([
 
 
     /**
+     * DEPRECATED
      * A temporary grid that is created to specifically handle new entries.
      * @param object An object containing the columns for the custom OnDemandGrid
      */
@@ -1152,16 +1134,15 @@ require([
      * @param id
      */
     featureEditor.utils.addRemoveColumns = function(/* number */ id) {
-        console.log("featureEditor.utils.addRemoveColumns. id: ", id);
+        console.log("featureEditor.utils.addRemoveColumns. id: ", arguments);
 
         var column = featureEditor.grid.columns[id];
 
-        if(column.hidden == false){
-            featureEditor.grid.styleColumn(id,"display:none;");
+        if(column.hidden == false) {
+            featureEditor.grid.styleColumn(id, "display:none;");
             featureEditor.grid.columns[id].hidden = true;
-        }
-        else{
-            featureEditor.grid.styleColumn(id,"display:table-cell;");
+        } else {
+            featureEditor.grid.styleColumn(id, "display:table-cell;");
             featureEditor.grid.columns[id].hidden = false;
         }
     }; // featureEditor.utils.addRemoveColumns
@@ -1243,6 +1224,7 @@ require([
 
 
     /**
+     * DEPRECATED
      * For handling edit click events in the Add New Grid. Be aware of differences between Chrome, Firefox and IE.
      * @param object - usually the row object
      * @param data
@@ -1332,7 +1314,7 @@ require([
 
         if(featureEditor.dgridRowClickListener != null) featureEditor.dgridRowClickListener.remove();
         featureEditor.dgridRowClickListener = featureEditor.grid.on(".dgrid-row:click",
-            function(event) { // single click, set currentRecord
+            function(event) { // single row click, set currentRecord
                 console.log("featureEditor.grid.on.dgrid-row:click event: ", arguments);
                 var stuff = featureEditor.grid.row(event);
                 console.debug("set featureEditor.currentRecord = stuff.data. stuff: ", stuff);
@@ -1344,7 +1326,7 @@ require([
 
         if(featureEditor.dgridCellDblClickListener != null) featureEditor.dgridCellDblClickListener.remove();
         featureEditor.dgridCellDblClickListener = featureEditor.grid.on(".dgrid-cell:dblclick",
-            function(event) {
+            function(event) { // double cell click, edit
                 console.log("featureEditor.grid.on.dgrid-cell:dblclick. event: ", arguments);
                 var stuff = featureEditor.grid.cell(event);
                 console.debug("cell: ", stuff);
@@ -1359,6 +1341,9 @@ require([
     }; // featureEditor.utils._setListeners
 
 
+    /**
+     * DEPRECATED
+     */
     featureEditor.utils._setAddGridListeners = function(/* boolean */ enableRow) {
         console.log("featureEditor.utils._setAddGridListeners. enableRow: ", enableRow);
 
@@ -1391,7 +1376,7 @@ require([
      * @private
      */
     featureEditor.utils._createStandbyIcon = function(/* String */ target) {
-        console.log("featureEditor.utils._createStandbyIcon. target: ", target);
+        console.log("featureEditor.utils._createStandbyIcon. target: ", arguments);
         var standbyIcon = new Standby({target : target, color : "grey"});
         document.body.appendChild(standbyIcon.domNode);
         standbyIcon.startup();
@@ -1421,6 +1406,7 @@ require([
     //////////////////////////////////////////////////////
 
     /**
+     * DEPRECATED
      * Handles CSS for Add Record and Remove New Record buttons.
      * Default is true in which Add Record Button is active and Remove button is disabled.
      * @param value boolean
@@ -1451,6 +1437,7 @@ require([
 
 
     /**
+     * DEPRECATED
      * Handles adding or removing the EditGrid. True equals visible.
      * @param value boolean
      */
