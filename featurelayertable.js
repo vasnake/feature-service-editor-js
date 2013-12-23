@@ -78,6 +78,7 @@ require([
     "dgrid/OnDemandGrid",
     "dgrid/Selection",
     "dgrid/extensions/ColumnHider",
+    "dgrid/extensions/ColumnResizer",
     "dgrid/CellSelection",
     "dgrid/util/mouse",
     "dgrid/Keyboard",
@@ -91,7 +92,7 @@ require([
     "dojox/widget/Standby",
     "dojo/domReady!",
     "dojox/json/ref"],
-    function(declare, FeatureLayer, Query, Button, ComboBox, number, OnDemandGrid, ColumnHider,
+    function(declare, FeatureLayer, Query, Button, ComboBox, number, OnDemandGrid, ColumnHider, ColumnResizer,
         Selection, CellSelection, mouseUtil, Keyboard, editor, Memory, on, when, request, query, Deferred, Standby) {
 
     /**
@@ -386,23 +387,32 @@ require([
                 for (var key in featureSet.features[0].attributes) {
                     //console.log(key); // field name
                     arr[ind] = key;
+
+                    // find field params - alias, type
+                    var fld = {};
+                    for (var fidx in featureSet.fields) {
+                        var f = featureSet.fields[fidx];
+                        if (f.name == key) {
+                            fld = f; break;
+                        }
+                    }
+
+                    columnArr[ind] = {
+                        label:  fld.alias || key.toString(),
+                        field:  key.toString(),
+                        hidden: false
+                    };
                     //See if there are any editable features.
-                    var editable = featureEditor.featureEditDetails.indexOf(key);
-                    if(editable >= 0) {
+                    if(featureEditor.featureEditDetails.indexOf(key) >= 0) {
                         columnArr[ind] = editor({ // dgrid/editor
-                            label:  key.toString(), // TODO: featureSet.features[0].attributes[key].alias
+                            label:  fld.alias || key.toString(),
                             field:  key.toString(),
                             hidden: false,
                             editor: "text",
                             editOn: "dblclick"
                         });
-                    } else {
-                        columnArr[ind] = {
-                            label:  key.toString(),
-                            field:  key.toString(),
-                            hidden: false
-                        };
                     }
+
                     ind++;
                 } // for each FC attribute
                 featureEditor.columnNamesArr = columnArr;
