@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=7, IE=9, IE=10">
+<meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+
+<title>ArcGIS FeatureService Editor</title>
+
+<link rel="stylesheet" href="http://dojofoundation.org/packages/dgrid/js/dgrid/css/dgrid.css">
+<link rel="stylesheet" href="http://js.arcgis.com/3.7/js/dojo/dijit/themes/claro/claro.css">
+<link rel="stylesheet" href="http://js.arcgis.com/3.7/js/dojo/dojox/grid/resources/Grid.css">
+<link rel="stylesheet" href="http://js.arcgis.com/3.7/js/dojo/dojox/grid/resources/claroGrid.css">
+
+<script>var dojoConfig = { parseOnLoad:true, isDebug:true };</script>
+<script src="http://js.arcgis.com/3.7/"></script>
+
+<link rel="stylesheet" href="featurelayertable.css" />
+<script type="text/javascript" src="featurelayertable.js"></script>
+
+</head>
+
+<body class="claro">
+
+<div id="entry-div">
+    <div style="border-color: white; border: 1px solid #e1e1e1;">
+        <div>
+            <div class="entryDivNameCol">Feature Services</div>
+            <div class="entryDivFieldCol"><input id="fsEndpoint" type="text"  /></div>
+            <div class="entryEditableField" id="entryEditableField" comment="NOT EDITABLE"></div>
+        </div>
+        <div class="clear" style="clear: both"></div>
+
+        <div >
+            <div class="entryDivNameCol">Query String</div>
+            <div class="entryDivFieldCol"><input id="query-string" type="text" /> </div>
+        </div>
+        <div class="clear" style="clear: both"></div>
+
+        <div class="loadBtnDiv">
+            <script type="text/javascript">
+            function loadPage() { // featureEditor.init(true)
+                require(["dojo/dom"], function(dom) {
+                    var fsUrl =         dom.byId("fsEndpoint").value,
+                        qString =       dom.byId("query-string").value,
+                        pageNum =       featureEditor.pageInfo.currentPage,
+                        rowsPerPage =   featureEditor.pageInfo.recordsPerPage;
+                    featureEditor.load(fsUrl, qString, pageNum, rowsPerPage);
+                });
+            };
+            function loadPrevPage() {
+                featureEditor.pageInfo.currentPage--;
+                featureEditor.load();
+            };
+            function loadNextPage() {
+                featureEditor.pageInfo.currentPage++;
+                featureEditor.load();
+            };
+            </script>
+            <button id="load-btn" onclick="loadPage()">Load</button>
+        </div>
+    </div>
+</div>
+
+<div id="paginator-div">
+    &nbsp;&nbsp;Total records =
+      <span id="recordsInfo">
+        0
+      </span>
+    |
+    <button dojoType="dijit.form.Button" onclick="loadPrevPage();">
+        Prev Page
+    </button>
+
+      <span id="pageInfo">
+      </span>
+
+    <button dojoType="dijit.form.Button" onclick="loadNextPage();">
+        Next Page
+    </button>
+    |
+    Current record
+    <button dojoType="dijit.form.Button" onclick="featureEditor.saveCurrentRecord();">
+        Save
+    </button>
+    <button dojoType="dijit.form.Button" onclick="featureEditor.resetCurrentRecord();">
+        Undo
+    </button>
+    <button dojoType="dijit.form.Button" onclick="featureEditor.deleteCurrentRecord();">
+        Delete
+    </button>
+</div>
+
+<div id="add-grid" class="grid2"></div>
+
+<div id="grid" class="grid1"></div>
+
+<div id="grid-legend-parent">
+    <label>Grid Legend</label>
+    <div id="grid-legend" style="padding-top: 15px;"></div>
+</div>
+
+<script type="text/javascript">
+require([
+    'dojo/_base/declare',
+    "dijit/form/ComboBox",
+    "dojo/store/Memory",
+    "dojo/ready"],
+    function(declare, ComboBox, Memory, ready) {
+        ready(function() {
+            //Set up the URL pulldown list so that you can manage more than one Feature Service.
+            var urlStore = new Memory({
+                data: [
+                    {name:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
+                        id:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0"},
+                    {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
+                        id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0"},
+                    {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0",
+                        id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0"}
+                ]
+            });
+
+            //http://dojotoolkit.org/reference-guide/1.9/dijit/form/ComboBox.html
+            //NOTE: may not work properly with IE8!
+            var cbFsEndpoint = new ComboBox({
+                store:      urlStore,
+                id:         "fsEndpoint",
+                name:       "url",
+                value:      "http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
+                searchAttr: "name"
+            }, "fsEndpoint");
+            cbFsEndpoint.set('style', {width: '500px'});
+        }); // dojo.ready
+    }
+);
+</script>
+
+</body>
+
+</html>
