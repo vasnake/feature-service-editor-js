@@ -111,8 +111,6 @@ require([
             //Set up the URL pulldown list so that you can manage more than one Feature Service.
             var urlStore = new Memory({
                 data: [
-                    {name:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
-                        id:"http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0"},
                     {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
                         id:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0"},
                     {name:"http://services.arcgis.com/IZtlGBUe4KTzLOl4/ArcGIS/rest/services/BPX_RTD_BusStops3/FeatureServer/0",
@@ -126,7 +124,7 @@ require([
                 store:      urlStore,
                 id:         "fsEndpoint",
                 name:       "url",
-                value:      "http://cgis.allgis.org/arcgis/rest/services/edit_Рецензирование/FeatureServer/0",
+                value:      "http://services.arcgis.com/IZtlGBUe4KTzLOl4/arcgis/rest/services/BPX_RTD_BusStops2/FeatureServer/0",
                 searchAttr: "name"
             }, "fsEndpoint");
             cbFsEndpoint.set('style', {width: '500px'});
