@@ -173,6 +173,7 @@ require([
             function() {
                 featureEditor.loadingIcon.hide();
                 //Create a simple array of field names that are editable
+                // TODO: featureEditor.featureLayer.fields may be undefined?
                 console.debug("featureEditor.featureLayer.fields", featureEditor.featureLayer.fields);
                 var flds = featureEditor.featureLayer.fields;
                 for(var key in flds) {
@@ -180,6 +181,7 @@ require([
                         this.featureEditDetails.push(flds[key].name);
                     }
                 }
+                console.debug("featureEditor.featureEditDetails", featureEditor.featureEditDetails);
             }
         )); // featureLayer.queryIds deferred.then
     }; // featureEditor.load
@@ -377,36 +379,30 @@ require([
         this.featureLayer.queryFeatures(query,
             function (featureSet) {
                 console.log("featureLayer.queryFeatures. featureSet: ", arguments);
+
+                // DEPRECATED
                 featureEditor.spatialReference = featureSet.spatialReference;
 
-                // grid fields
-                var ind = 0; // fields list index
-                var arr = []; // field names
-                var columnArr = []; // dgrid fields list
+                // build grid fields list
+                var ind = 0;        // fields list index
+                var arr = [];       // field names like ['OBJECTID', 'NOTE', 'RECID']
+                var columnArr = []; // dgrid fields like [Object, Object, Object]
 
-                for (var key in featureSet.features[0].attributes) {
-                    //console.log(key); // field name
-                    arr[ind] = key;
+                for (var key in featureSet.fields) {
+                    var fld = featureSet.fields[key]; // field {alias, name, type}
 
-                    // find field params - alias, type
-                    var fld = {};
-                    for (var fidx in featureSet.fields) {
-                        var f = featureSet.fields[fidx];
-                        if (f.name == key) {
-                            fld = f; break;
-                        }
-                    }
+                    arr[ind] = fld.name;
 
                     columnArr[ind] = {
-                        label:  fld.alias || key.toString(),
-                        field:  key.toString(),
+                        label:  fld.alias || fld.name,
+                        field:  fld.name,
                         hidden: false
                     };
                     //See if there are any editable features.
-                    if(featureEditor.featureEditDetails.indexOf(key) >= 0) {
-                        columnArr[ind] = editor({ // dgrid/editor
-                            label:  fld.alias || key.toString(),
-                            field:  key.toString(),
+                    if(featureEditor.featureEditDetails.indexOf(fld.name) >= 0) {
+                        columnArr[ind] = new editor({ // dgrid/editor
+                            label:  fld.alias || fld.name,
+                            field:  fld.name,
                             hidden: false,
                             editor: "text",
                             editOn: "dblclick"
@@ -414,9 +410,10 @@ require([
                     }
 
                     ind++;
-                } // for each FC attribute
-                featureEditor.columnNamesArr = columnArr;
+                } // end for field in featureSet.fields
+
                 // fill dGrid
+                featureEditor.columnNamesArr = columnArr;
                 featureEditor.utils.updateGrid(featureSet, pageNumber, arr, columnArr);
                 featureEditor.loadingIcon.hide();
             } // queryFeatures callback
