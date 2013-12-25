@@ -61,6 +61,22 @@ featureEditor.yField = null; //internal - field string name containing y geometr
 featureEditor.rowOnClick = null; // dGrid row onClick external callback
 featureEditor.cellOnDblClick = null; // dGrid cell onDblClick external callback
 
+featureEditor.onZoomToCurrentRecord = null; // external callback for ZoomToCurrentRecord map interaction
+/* CS example:
+    featureEditor.onZoomToCurrentRecord = (featureInfo) ->
+        mapPoint = geometryCenter featureInfo.feature.geometry
+        defer = map.centerAndZoom mapPoint, map.getMaxScale() # getMaxZoom
+        defer.then () ->
+            console.log("onZoomToCurrentRecord complete", arguments, mapPoint)
+
+    geometryCenter: (geom) -> # returns Point at center of input geometry
+        return fig = new esri.geometry.Point(geom) if geom.type is 'point'
+        fig = new esri.geometry.Polygon(geom) if geom.type is 'polygon'
+        fig = new esri.geometry.Polyline(geom) if geom.type is 'polyline'
+        point = fig.getExtent().getCenter()
+ */
+
+
 /**
  * An array of the editable fields within the featureLayer.
  * By default, fields with the property editable = false are automatically excluded.
@@ -516,17 +532,8 @@ require([
         var dirty = featureEditor.grid.dirty;
         console.debug("grid.dirty: ", featureEditor.utils.toJson(dirty));
         var hasData = false;
-
         // find master record
-        var mrec = null;
-        console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
-        for(var ind in featureEditor.masterRecordArr) {
-            var mr = featureEditor.masterRecordArr[ind];
-            if(mr.attributes['OBJECTID'] == oid) {
-                mrec = mr;
-                break;
-            }
-        }
+        var mrec = this.getCurrentMasterRecord();
         if(mrec == null) {
             alert("Unable to update feature. master record undefined");
             featureEditor.utils.revertCurrentRecord();
@@ -661,18 +668,8 @@ require([
     featureEditor.deleteFeature = function(/* Object */ data, /* String */ token, /* boolean */ confirm) {
         // featureEditor.deleteFeature(featureEditor.currentRecord, null, true);
         console.log("featureEditor.deleteFeature. data, token, confirm: ", data, token, confirm);
-        var oid = parseInt(data.OBJECTID, 10);
-
         // find master record
-        var mrec = null;
-        console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
-        for(var ind in featureEditor.masterRecordArr) {
-            var mr = featureEditor.masterRecordArr[ind];
-            if(mr.attributes['OBJECTID'] == oid) {
-                mrec = mr;
-                break;
-            }
-        }
+        var mrec = this.getCurrentMasterRecord();
         if(mrec == null) {
             alert("Unable to find feature. Master record undefined");
             return;
@@ -781,6 +778,58 @@ require([
             window.lastex = ex;
         }
     }; // featureEditor.deleteCurrentRecord
+
+
+    /**
+     * Button 'Zoom' onClick handler.
+     * Call ext. function with current record feature data (geometry, oid, SR)
+     */
+    featureEditor.zoomToCurrentRecord = function() {
+        console.log("featureEditor.zoomToCurrentRecord", arguments);
+
+        if(!this.onZoomToCurrentRecord) {
+            console.log("featureEditor.zoomToCurrentRecord. no callback");
+            return;
+        }
+        if(!this.currentRecord) {
+            console.log("featureEditor.zoomToCurrentRecord. no currentRecord");
+            return;
+        }
+        try {
+            var fData = this.getCurrentMasterRecord();
+            this.onZoomToCurrentRecord.call(this,
+                {
+                    feature:    fData,
+                    sr:         this.spatialReference,
+                    url:        this.restEndpoint
+                }
+            );
+        } catch(ex) {
+            console.log("Error in featureEditor.zoomToCurrentRecord. \n" + 'message: ' + ex.description + "\n" + ex.message, ex);
+            console.debug('error stack: ' + ex.stack);
+            window.lastex = ex;
+        }
+    }; // featureEditor.zoomToCurrentRecord
+
+
+    /**
+     * Returns original copy of feature data for current record
+     */
+    featureEditor.getCurrentMasterRecord = function() {
+        console.log("featureEditor.getCurrentMasterRecord", arguments);
+        var oid = parseInt(this.currentRecord.OBJECTID, 10);
+        // find master record
+        console.debug("featureEditor.masterRecordArr: ", featureEditor.masterRecordArr);
+        for(var ind in featureEditor.masterRecordArr) {
+            var mr = featureEditor.masterRecordArr[ind];
+            // TODO: must be some featureSet.fields.oidTypeField based selection,
+            // not hardcoded OBJECTID
+            if(mr.attributes['OBJECTID'] == oid) {
+                return mr;
+            }
+        }
+        return null;
+    }; // featureEditor.getCurrentMasterRecord
 
 
     /**
@@ -1054,7 +1103,7 @@ require([
             });
 
             // Dojo's dGrid
-            var DataGrid = declare([OnDemandGrid, Selection, CellSelection, Keyboard]);
+            var DataGrid = declare([OnDemandGrid, Selection, CellSelection]);
             featureEditor.grid = new DataGrid({
                 store:          featureEditor.store,
                 columns:        fields,
